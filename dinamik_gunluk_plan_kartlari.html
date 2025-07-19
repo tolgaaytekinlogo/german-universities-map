@@ -1097,16 +1097,16 @@ Gemi: Güverte kafe - Hafif atıştırmalıklar ve içecekler</YemeIcmeOnerileri
                 <h5 class="mb-0">Seyahat Rotası Haritaları</h5>
             </div>
             <div class="card-body">
-                <!-- SVG Özel Çizim Harita -->
-                <div class="mb-4">
-                    <h4 class="mb-3">SVG Özel Çizim Harita</h4>
-                    <div id="svg-map-container" style="height: 500px; width: 100%;"></div>
-                </div>
-                
                 <!-- Metro Stili Harita -->
                 <div class="mb-4">
                     <h4 class="mb-3">Metro Stili Harita</h4>
                     <div id="metro-map-container" style="height: 500px; width: 100%;"></div>
+                </div>
+                
+                <!-- SVG Özel Çizim Harita -->
+                <div class="mb-4">
+                    <h4 class="mb-3">SVG Özel Çizim Harita</h4>
+                    <div id="svg-map-container" style="height: 500px; width: 100%;"></div>
                 </div>
                 
                 <!-- Zaman-Mekan Çizelgesi -->
@@ -3796,7 +3796,7 @@ Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
             { day: 21, date: "08.08.2025", city: "Halkidiki", country: "Yunanistan", lat: 40.2447, lng: 23.6990, nextCity: "Enez", nextCountry: "Türkiye" }
         ];
         
-        // Metro haritaya otomatik odaklanma
+        // Metro harita varsayılan görünüm - artık en üstte olduğu için otomatik scroll gerekmiyor
         function initializeDefaultView() {
             const today = new Date();
             const todayStr = today.toLocaleDateString('tr-TR', {
@@ -3806,24 +3806,7 @@ Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
             });
             
             console.log(`Sayfa yüklendi. Bugünün tarihi: ${todayStr}`);
-            console.log('Metro haritaya otomatik odaklanma başlatılıyor.');
-            
-            // Metro harita container'ını bul ve ona scroll yap
-            setTimeout(() => {
-                const metroMapContainer = document.getElementById('metro-map-container');
-                if (metroMapContainer) {
-                    // Metro haritaya smooth scroll yap
-                    metroMapContainer.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center',
-                        inline: 'nearest'
-                    });
-                    
-                    console.log('Metro haritaya odaklanıldı.');
-                } else {
-                    console.log('Metro harita container bulunamadı.');
-                }
-            }, 2500); // Haritaların tamamen yüklenmesi için biraz daha bekle
+            console.log('Metro harita en üstte konumlandırıldı ve bugün göstergesi aktif.');
         }
         
         document.addEventListener('DOMContentLoaded', function() {
