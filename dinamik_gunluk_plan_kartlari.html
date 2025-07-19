@@ -3663,6 +3663,90 @@ Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
             { day: 21, date: "08.08.2025", city: "Halkidiki", country: "Yunanistan", lat: 40.2447, lng: 23.6990, nextCity: "Enez", nextCountry: "Türkiye" }
         ];
         
+        // Bugünün tarihine odaklanma fonksiyonu
+        function focusOnToday() {
+            const today = new Date();
+            const todayStr = today.toLocaleDateString('tr-TR', {
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric'
+            });
+            
+            // Bugünün tarihine uygun günü bul
+            const todayItem = travelRoute.find(item => item.date === todayStr);
+            
+            if (todayItem) {
+                // Bugünün gününe odaklan
+                const todayDay = todayItem.day;
+                
+                // Gün filtreleme butonunu aktif et
+                const todayButton = document.querySelector(`#dayFilterButtons button[data-day="${todayDay}"]`);
+                if (todayButton) {
+                    // Tüm butonlardan aktif sınıfını kaldır
+                    document.querySelectorAll('#dayFilterButtons button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    // Bugünün butonunu aktif et
+                    todayButton.classList.add('active');
+                    
+                    // Bugünün verilerini yükle
+                    loadPlanData(todayDay);
+                    
+                    // Butona scroll yap (görünür hale getir)
+                    todayButton.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                
+                // Timeline'da bugüne odaklan (eğer timeline varsa)
+                setTimeout(() => {
+                    const timelineContainer = document.getElementById('timeline-container');
+                    if (timelineContainer && window.timeline) {
+                        // Timeline'da bugünün tarihine git
+                        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        window.timeline.moveTo(todayDate, { animation: true });
+                        
+                        // Bugünün item'ini seç
+                        window.timeline.setSelection([todayDay]);
+                    }
+                }, 1000);
+                
+                // Konsola bilgi yazdır
+                console.log(`Bugüne odaklanıldı: ${todayStr} - Gün ${todayDay}`);
+                
+                // Kullanıcıya bilgi göster (isteğe bağlı)
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 5px;
+                    z-index: 9999;
+                    font-size: 14px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                `;
+                notification.textContent = `Bugüne odaklanıldı: ${todayStr} (Gün ${todayDay})`;
+                document.body.appendChild(notification);
+                
+                // Bildirimi 3 saniye sonra kaldır
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 3000);
+                
+            } else {
+                // Bugün seyahat planında yoksa ilk güne odaklan
+                console.log('Bugün seyahat planında bulunamadı, ilk güne odaklanılıyor.');
+                const firstDayButton = document.querySelector('#dayFilterButtons button[data-day="1"]');
+                if (firstDayButton) {
+                    firstDayButton.classList.add('active');
+                    loadPlanData(1);
+                }
+            }
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             // Sayfa yüklendiğinde plan verilerini yükle
             loadPlanData();
@@ -3671,6 +3755,11 @@ Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
             createSVGMap();
             createMetroMap();
             createTimelineMap();
+            
+            // Bugüne odaklan (haritalar yüklendikten sonra)
+            setTimeout(() => {
+                focusOnToday();
+            }, 1500);
             
             // Gün filtreleme butonlarına tıklama olayı ekle
             document.querySelectorAll('#dayFilterButtons button').forEach(button => {
