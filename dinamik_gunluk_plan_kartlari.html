@@ -3796,8 +3796,9 @@ Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
             { day: 21, date: "08.08.2025", city: "Halkidiki", country: "Yunanistan", lat: 40.2447, lng: 23.6990, nextCity: "Enez", nextCountry: "Türkiye" }
         ];
         
-        // Bugünün tarihine ve gün kartına odaklanma fonksiyonu
-        function focusOnToday() {
+        // Metro haritayı varsayılan aktif yap - diğer focus özellikleri kaldırıldı
+        function initializeDefaultView() {
+            // Sadece konsola bilgi yazdır - hiçbir otomatik scroll veya vurgulama yok
             const today = new Date();
             const todayStr = today.toLocaleDateString('tr-TR', {
                 day: '2-digit',
@@ -3805,125 +3806,8 @@ Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
                 year: 'numeric'
             });
             
-            // Bugünün tarihine uygun günü bul
-            const todayItem = travelRoute.find(item => item.date === todayStr);
-            
-            if (todayItem) {
-                // Bugünün gününe odaklan
-                const todayDay = todayItem.day;
-                
-                // Gün filtreleme butonunu aktif et
-                const todayButton = document.querySelector(`#dayFilterButtons button[data-day="${todayDay}"]`);
-                if (todayButton) {
-                    // Tüm butonlardan aktif sınıfını kaldır
-                    document.querySelectorAll('#dayFilterButtons button').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
-                    // Bugünün butonunu aktif et
-                    todayButton.classList.add('active');
-                    
-                    // Bugünün verilerini yükle
-                    loadPlanData(todayDay);
-                    
-                    // Butona scroll yap (görünür hale getir)
-                    todayButton.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-                
-                // Bugünün gün kartına scroll yap
-                setTimeout(() => {
-                    const todayCard = document.querySelector(`[data-day-number="${todayDay}"]`);
-                    if (todayCard) {
-                        // Kartı vurgula
-                        todayCard.style.border = '3px solid #28a745';
-                        todayCard.style.boxShadow = '0 4px 20px rgba(40, 167, 69, 0.3)';
-                        todayCard.style.transform = 'scale(1.02)';
-                        todayCard.style.transition = 'all 0.3s ease';
-                        
-                        // Karta smooth scroll yap
-                        todayCard.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'center',
-                            inline: 'nearest'
-                        });
-                        
-                        // Vurgulamayı 5 saniye sonra kaldır
-                        setTimeout(() => {
-                            todayCard.style.border = '';
-                            todayCard.style.boxShadow = '';
-                            todayCard.style.transform = '';
-                        }, 5000);
-                        
-                        console.log(`Bugünün kartına odaklanıldı: Gün ${todayDay}`);
-                    }
-                }, 2000); // Kartların yüklenmesi için biraz daha bekle
-                
-                // Timeline'da bugüne odaklan (eğer timeline varsa)
-                setTimeout(() => {
-                    const timelineContainer = document.getElementById('timeline-container');
-                    if (timelineContainer && window.timeline) {
-                        // Timeline'da bugünün tarihine git
-                        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                        window.timeline.moveTo(todayDate, { animation: true });
-                        
-                        // Bugünün item'ini seç
-                        window.timeline.setSelection([todayDay]);
-                    }
-                }, 1000);
-                
-                // Konsola bilgi yazdır
-                console.log(`Bugüne odaklanıldı: ${todayStr} - Gün ${todayDay}`);
-                
-                // Kullanıcıya bilgi göster (isteğe bağlı)
-                const notification = document.createElement('div');
-                notification.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #28a745;
-                    color: white;
-                    padding: 10px 15px;
-                    border-radius: 5px;
-                    z-index: 9999;
-                    font-size: 14px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-                `;
-                notification.textContent = `Bugünün kartına odaklanıldı: ${todayStr} (Gün ${todayDay})`;
-                document.body.appendChild(notification);
-                
-                // Bildirimi 3 saniye sonra kaldır
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 3000);
-                
-            } else {
-                // Bugün seyahat planında yoksa ilk güne odaklan
-                console.log('Bugün seyahat planında bulunamadı, ilk güne odaklanılıyor.');
-                const firstDayButton = document.querySelector('#dayFilterButtons button[data-day="1"]');
-                if (firstDayButton) {
-                    firstDayButton.classList.add('active');
-                    loadPlanData(1);
-                }
-                
-                // İlk kartı vurgula
-                setTimeout(() => {
-                    const firstCard = document.querySelector('[data-day-number="1"]');
-                    if (firstCard) {
-                        firstCard.style.border = '3px solid #007bff';
-                        firstCard.style.boxShadow = '0 4px 20px rgba(0, 123, 255, 0.3)';
-                        firstCard.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'center'
-                        });
-                        
-                        setTimeout(() => {
-                            firstCard.style.border = '';
-                            firstCard.style.boxShadow = '';
-                        }, 5000);
-                    }
-                }, 2000);
-            }
+            console.log(`Sayfa yüklendi. Bugünün tarihi: ${todayStr}`);
+            console.log('Metro haritada bugün göstergesi aktif.');
         }
         
         document.addEventListener('DOMContentLoaded', function() {
@@ -3935,9 +3819,9 @@ Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
             createMetroMap();
             createTimelineMap();
             
-            // Bugüne odaklan (haritalar yüklendikten sonra)
+            // Varsayılan görünümü başlat (sadece konsol bilgisi)
             setTimeout(() => {
-                focusOnToday();
+                initializeDefaultView();
             }, 1500);
             
             // Gün filtreleme butonlarına tıklama olayı ekle
