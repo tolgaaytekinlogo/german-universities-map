@@ -1,0 +1,3694 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dinamik Günlük Plan Kartları</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Leaflet CSS ve JS -->    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+    <!-- D3.js ve Timeline.js kütüphaneleri -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    <link href="https://unpkg.com/vis-timeline/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        :root {
+            --primary-color: #003366;
+            --secondary-color: #0066cc;
+            --accent-color: #ff9900;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        /* Harita stilleri */
+        #map-container {
+            margin-bottom: 30px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        
+        .map-controls {
+            background-color: white;
+            padding: 15px;
+            border-radius: 0 0 10px 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .map-legend {
+            padding: 10px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 50%;
+        }
+        
+        /* Harita işaretleyici stilleri */
+        .custom-div-icon {
+            background: transparent;
+            border: none;
+        }
+        
+        .marker-pin {
+            width: 30px;
+            height: 30px;
+            border-radius: 50% 50% 50% 0;
+            background: #c30b82;
+            position: absolute;
+            transform: rotate(-45deg);
+            left: 50%;
+            top: 50%;
+            margin: -15px 0 0 -15px;
+        }
+        
+        .marker-pin::after {
+            content: '';
+            width: 24px;
+            height: 24px;
+            margin: 3px 0 0 3px;
+            background: #fff;
+            position: absolute;
+            border-radius: 50%;
+        }
+        
+        .custom-div-icon i {
+            position: absolute;
+            width: 22px;
+            font-size: 14px;
+            left: 4px;
+            top: 5px;
+            text-align: center;
+            color: #333;
+        }
+        
+        .card {
+            margin-bottom: 30px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 0;
+        }
+        
+        #cards-container {
+            width: 100%;
+        }
+        
+        .card-header {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 15px 20px;
+            border-bottom: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .card-header .day-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-header .day-info .day-number {
+            background-color: var(--accent-color);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .card-header .date-info {
+            text-align: right;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .card-body {
+            padding: 0;
+        }
+        
+        .route-info {
+            background-color: #e9f0f8;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .route-info .cities {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+        }
+        
+        .route-info .cities i {
+            margin: 0 10px;
+            color: var(--secondary-color);
+        }
+        
+        .route-info .distance {
+            background-color: var(--light-color);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: var(--dark-color);
+        }
+        
+        .content-section {
+            padding: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .section-title i {
+            margin-right: 8px;
+        }
+        
+        .accommodation-info {
+            display: flex;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .accommodation-info .icon {
+            flex: 0 0 50px;
+            font-size: 24px;
+            color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .accommodation-info .details {
+            flex: 1;
+        }
+        
+        .accommodation-info .details h5 {
+            margin: 0 0 5px;
+            font-size: 1.1rem;
+        }
+        
+        .accommodation-info .details p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .accommodation-info .price {
+            flex: 0 0 100px;
+            text-align: right;
+            font-weight: bold;
+            color: var(--accent-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .accommodation-info .price .duration {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .program-item {
+            display: flex;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .program-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .program-item .time {
+            flex: 0 0 100px;
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+        
+        .program-item .content {
+            flex: 1;
+        }
+        
+        .program-item .content h5 {
+            margin: 0 0 5px;
+            font-size: 1rem;
+        }
+        
+        .program-item .content p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .visit-place {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .visit-place .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .visit-place .header h5 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        
+        .visit-place .header .type {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+        }
+        
+        .visit-place .header .type.university {
+            background-color: #28a745;
+        }
+        
+        .visit-place .address {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .visit-place .details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+        
+        .visit-place .details .duration {
+            color: var(--secondary-color);
+            font-weight: 500;
+        }
+        
+        .visit-place .details .notes {
+            color: #666;
+            font-style: italic;
+        }
+        
+        .notes-section {
+            background-color: #fff9e6;
+            border-radius: 5px;
+        }
+        
+        .notes-section h5 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .notes-section p {
+            margin-bottom: 5px;
+            color: #6c757d;
+        }
+        
+        .filter-container {
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .filter-btn {
+            background-color: var(--light-color);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn.active {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        .filter-btn:hover:not(.active) {
+            background-color: #e2e6ea;
+        }
+        
+        .university-section {
+            background-color: #f0f7ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            border-left: 4px solid #0066cc;
+        }
+        
+        /* Hava Durumu Stilleri */
+        .weather-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 5px;
+            border-left: 4px solid #1976d2;
+        }
+        
+        .weather-section h5 {
+            color: #0d47a1;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+        
+        .weather-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+        }
+        
+        .weather-icon {
+            font-size: 24px;
+            color: #1976d2;
+            margin-right: 15px;
+            width: 40px;
+            text-align: center;
+        }
+        
+        .weather-content h6 {
+            margin: 0;
+            font-weight: 600;
+            color: #0d47a1;
+        }
+        
+        .weather-details {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        
+        .temperature {
+            font-weight: bold;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        
+        .description {
+            color: #546e7a;
+        }
+        
+        /* Yeme-İçme Önerileri Stilleri */
+        .food-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f1f8e9;
+            border-radius: 5px;
+            border-left: 4px solid #689f38;
+        }
+        
+        .food-section h5 {
+            color: #33691e;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+        
+        .food-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            padding: 8px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+        }
+        
+        .food-icon {
+            font-size: 20px;
+            color: #689f38;
+            margin-right: 15px;
+            width: 30px;
+            text-align: center;
+        }
+        
+        .food-content h6 {
+            margin: 0;
+            font-weight: 600;
+            color: #33691e;
+        }
+        
+        .food-content p {
+            margin: 5px 0 0;
+            color: #546e7a;
+            font-style: italic;
+        }
+        
+        .university-section h4 {
+            color: #0066cc;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .university-section h4 i {
+            margin-right: 10px;
+        }
+        
+        .university-item {
+            display: flex;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .university-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .university-icon {
+            flex: 0 0 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #0066cc;
+        }
+        
+        .university-content {
+            flex: 1;
+        }
+        
+        .university-content h5 {
+            margin: 0 0 5px 0;
+            font-size: 1.1rem;
+            color: #333;
+        }
+        
+        .university-address {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .university-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+        
+        .university-detail {
+            background-color: #e9f2ff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .university-detail i {
+            margin-right: 5px;
+            font-size: 0.8rem;
+        }
+        
+        .route-summary {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 8px;
+            border: 1px solid #cce5ff;
+        }
+        
+        .route-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        
+        .route-distance {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        
+        .route-details {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        
+        @media (max-width: 768px) {
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .card-header .date-info {
+                text-align: left;
+                margin-top: 10px;
+            }
+            
+            .route-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .route-info .distance {
+                margin-top: 10px;
+            }
+            
+            .accommodation-info {
+                flex-direction: column;
+            }
+            
+            .accommodation-info .price {
+                text-align: left;
+                margin-top: 10px;
+            }
+            
+            .program-item {
+                flex-direction: column;
+            }
+            
+            .program-item .time {
+                margin-bottom: 5px;
+            }
+            
+            .visit-place .header {
+                flex-direction: column;
+            }
+            
+            .visit-place .header .type {
+                align-self: flex-start;
+                margin-top: 5px;
+            }
+            
+            .visit-place .details {
+                flex-direction: column;
+            }
+            
+            .visit-place .details .notes {
+                margin-top: 5px;
+            }
+        }
+        
+        /* Filtre ve sayfalama için ek stiller */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .pagination {
+            display: flex;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .pagination li {
+            margin: 0 5px;
+        }
+        
+        .pagination button {
+            background-color: var(--light-color);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .pagination button.active {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        .pagination button:hover:not(.active) {
+            background-color: #e2e6ea;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2rem;
+            color: var(--secondary-color);
+        }
+        
+        .controls-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .search-container {
+            flex: 1;
+            max-width: 300px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- XML verilerini gizli bir script içinde saklayalım -->
+    <script id="seyahat-plani-xml" type="text/xml">
+<trip>
+    <day>
+        <Tarih>19.07.2025</Tarih>
+        <Haftanın_Günü>CUMARTESİ</Haftanın_Günü>
+        <Ayın_Günü>19</Ayın_Günü>
+        <GeziGünü>1</GeziGünü>
+        <Başlangıç_Noktası>Enez</Başlangıç_Noktası>
+        <KONAKLAMA>Gemi</KONAKLAMA>
+        <Otel>Gemi</Otel>
+        <Yolculuklar>Enez - iguamenitsa --&gt; 8 Saat, 700km
+      Gemiye biniş Igumenitza  23:15</Yolculuklar>
+        <Gezi_Planı>Igumenitsada denize girilebilir?</Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar>Gemi öncesi yiyecek-içecek</Notlar>
+      </day>
+      <day>
+        <Tarih>20.07.2025</Tarih>
+        <Haftanın_Günü>PAZAR</Haftanın_Günü>
+        <Ayın_Günü>20</Ayın_Günü>
+        <GeziGünü>2</GeziGünü>
+        <Başlangıç_Noktası>Ancona</Başlangıç_Noktası>
+        <KONAKLAMA>Milano /İtalya</KONAKLAMA>
+        <Otel>Poste Regie - Milan Guest House
+      (118 + 25)
+      76 Via Giovanni Battista Cassinis, Ripamonti Corvetto, 20139 Milano, İtalya</Otel>
+        <Yolculuklar>Ancona - Gemiden iniş : 14:30 
+      Ancona-Milano (San Donato --&gt; 4,5 saat, 432 km
+      Milano Varış : 20:00</Yolculuklar>
+        <Gezi_Planı>Milano (20:00)
+      Akşam yemeği ve dolaşma </Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      <day>
+        <Tarih>21.07.2025</Tarih>
+        <Haftanın_Günü>PAZARTESİ</Haftanın_Günü>
+        <Ayın_Günü>21</Ayın_Günü>
+        <GeziGünü>3</GeziGünü>
+        <Başlangıç_Noktası>Milano</Başlangıç_Noktası>
+        <KONAKLAMA>Bellinzona/İsviçre</KONAKLAMA>
+        <Otel>Rame Loft per 4 Personne a Bellinzona by easy life Swiss
+      5 Via Tommasso Rodari </Otel>
+        <Yolculuklar>Milano - Swissminiatur : 1,5 Saat , 70 km : Çıkış 13:00 - Varış : 14:30
+      como - Swissminiatur : 30dk , 27km : Varış : 16:00 (opsiyonel)
+      Swissminiatur - Lugano  15dk , 11Km Varış: 16:00
+      Lugano - Bellinzona  30dk, 31km Varış: 18:00
+      Bellinzona - otel 30 dk</Yolculuklar>
+        <Gezi_Planı>Milano Sabah Gezisi (4 Saat)
+      Como Gezisi (1,5 saat) - opsiyonel
+      Swissminiatur Gezisi (1,5 Saat)
+      Lugano akşam gezisi (1 saat)
+      Bellinzona Gezisi (1,5 Saat)</Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      <day>
+        <Tarih>22.07.2025</Tarih>
+        <Haftanın_Günü>SALI</Haftanın_Günü>
+        <Ayın_Günü>22</Ayın_Günü>
+        <GeziGünü>4</GeziGünü>
+        <Başlangıç_Noktası>Bellinzona/İsviçre</Başlangıç_Noktası>
+        <KONAKLAMA>Konstanz / Almanya</KONAKLAMA>
+        <Otel>WHLIVING - Apartments &amp; Studios in Konstanz
+      (173 + 9)
+      Steinstraße 19, Petershausen-West, 78467 Konstanz</Otel>
+        <Yolculuklar>Verdabbio--St Gallen seyahat/211km-2,5 saat  (çıkış 09:00 varış : 11:30)
+      St Gallen-Konstanz- 45 km 1 saat Varış 15:00
+      Chur(opsiyonel)</Yolculuklar>
+        <Gezi_Planı>
+      St Gallen gezisi (2 Saat)
+      Universitat Konstanz Gezisi (2 Saat)</Gezi_Planı>
+        <Gezilecek_Üniversiteler>University of St. Gallen
+      Universitat Konstanz</Gezilecek_Üniversiteler>
+        <Notlar>Yol güzergahı görülecek yerler
+      Otel ayarlama</Notlar>
+      </day>
+      <day>
+        <Tarih>23.07.2025</Tarih>
+        <Haftanın_Günü>ÇARŞAMBA</Haftanın_Günü>
+        <Ayın_Günü>23</Ayın_Günü>
+        <GeziGünü>5</GeziGünü>
+        <Başlangıç_Noktası>Konstanz / Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Freiburg /Almanya</KONAKLAMA>
+        <Otel>Freiburg Apartments Friedrichring
+      Friedrichring 37, 79098 Freiburg im Breisgau, Almanya</Otel>
+        <Yolculuklar>Konstanz - Europapark : 2 Saat , 160km : Varış : 10:00
+      Rust - Freiburg : 30dk, 38km varış : 19:00</Yolculuklar>
+        <Gezi_Planı>Europapark</Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar>Europapark bilet
+      Otal ayarlama</Notlar>
+      </day>
+      
+      <day>
+        <Tarih>24.07.2025</Tarih>
+        <Haftanın_Günü>PERŞEMBE</Haftanın_Günü>
+        <Ayın_Günü>24</Ayın_Günü>
+        <GeziGünü>6</GeziGünü>
+        <Başlangıç_Noktası>Freiburg /Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Stuttgart/Almanya</KONAKLAMA>
+        <Otel>Hotel Hansa Stuttgart City</Otel>
+        <Yolculuklar>Freiburg - Karsruhe 1,5 saat , 138km Varış : 14:30
+      Karlsruhe - Stuttgart - 1Saat , 85km varış : 19:00
+      
+      Alternatif: Freiburg-strasburg 88km-1.15 saat (varış14:00
+      Strasburg-Karlsruhe : 93km-1.16 saat (varış: 16:30)
+      Karlsruhe-stuttgart : 76km-1,5 saat</Yolculuklar>
+        <Gezi_Planı>Freiburg+Freiburg üni gezi / Öğlen 13e kadar
+      freiburg-kıt (1,5 saat)
+      Karlsruher Institut (KIT) gezi
+      Karlsruhe Stutgart yolculuk (1 saat)</Gezi_Planı>
+        <Gezilecek_Üniversiteler>University of Freiburg
+      Karlsruher Institut (KIT)</Gezilecek_Üniversiteler>
+        <Notlar>Stuttgart otel ayarlama-otoparklı-rahat ulaşım
+      Üniversitelere toplu taşıma nasıl gidilir?</Notlar>
+      </day>
+      
+      <day>
+        <Tarih>25.07.2025</Tarih>
+        <Haftanın_Günü>CUMA</Haftanın_Günü>
+        <Ayın_Günü>25</Ayın_Günü>
+        <GeziGünü>7</GeziGünü>
+        <Başlangıç_Noktası>Stuttgart/Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Stuttgart / Almanya</KONAKLAMA>
+        <Otel>Hotel Hansa Stuttgart City</Otel>
+        <Yolculuklar>Universitat Stuttgart gezisi - Stuttgart gezisi</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler>Universitat Stuttgart</Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      
+      <day>
+        <Tarih>26.07.2025</Tarih>
+        <Haftanın_Günü>CUMARTESİ</Haftanın_Günü>
+        <Ayın_Günü>26</Ayın_Günü>
+        <GeziGünü>8</GeziGünü>
+        <Başlangıç_Noktası>Stuttgart / Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Metzingen /Almanya</KONAKLAMA>
+        <Otel>Sevis Outlet Apartments</Otel>
+        <Yolculuklar>Stuttgart - Tubingen 45 km yolculuk + gezi + 
+      Tubingen-metzingen 23 km+ alışveriş
+      
+      Universitat Hohenheim opsiyonel</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler>Tubingen Üni
+      Universitat Hohenheim - opsiyonel</Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      
+      <day>
+        <Tarih>27.07.2025</Tarih>
+        <Haftanın_Günü>PAZAR</Haftanın_Günü>
+        <Ayın_Günü>27</Ayın_Günü>
+        <GeziGünü>9</GeziGünü>
+        <Başlangıç_Noktası>Metzingen /Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Mannheim / Almanya</KONAKLAMA>
+        <Otel>Ev</Otel>
+        <Yolculuklar>Stuttgart-Heidelberg 120km / 1,5 saat
+      Heidelberg-Mannheim- 20 km-23 dk</Yolculuklar>
+        <Gezi_Planı>Sabah Üstertuna kahvaltı
+      Heidelberg gezisi + üni??</Gezi_Planı>
+        <Gezilecek_Üniversiteler>University of Heidelberg</Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      
+      <day>
+        <Tarih>28.07.2025</Tarih>
+        <Haftanın_Günü>PAZARTESİ</Haftanın_Günü>
+        <Ayın_Günü>28</Ayın_Günü>
+        <GeziGünü>10</GeziGünü>
+        <Başlangıç_Noktası>Mannheim / Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Mannheim /Almanya</KONAKLAMA>
+        <Otel>Ev</Otel>
+        <Yolculuklar>Universitat Mannheim / Heidelberg University</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler>Universitat Mannheim 
+      Heidelberg University</Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      
+      <day>
+        <Tarih>29.07.2025</Tarih>
+        <Haftanın_Günü>SALI</Haftanın_Günü>
+        <Ayın_Günü>29</Ayın_Günü>
+        <GeziGünü>11</GeziGünü>
+        <Başlangıç_Noktası>Mannheim /Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Frankfurt /Almanya</KONAKLAMA>
+        <Otel>Belirsiz</Otel>
+        <Yolculuklar>Mannheim-Darmstadt 60km / 45 dk (tahmini varış 11:00)
+      Darmstadt-Frankfurt 36 km/40 dk (tahmini varış 13:30)</Yolculuklar>
+        <Gezi_Planı>Mannheim-Frankfurt seyahat-1 saat
+      Frankfurt - Technische Universitat Darmstadt
+      Johann Wolfgang Goethe Universitat Frankfurt am Main (Goethe uni)</Gezi_Planı>
+        <Gezilecek_Üniversiteler>Technische Universitat Darmstadt
+      Johann Wolfgang Goethe Universitat Frankfurt</Gezilecek_Üniversiteler>
+        <Notlar>Frankfurt otel ayarlama</Notlar>
+      </day>
+      
+      <day>
+        <Tarih>30.07.2025</Tarih>
+        <Haftanın_Günü>ÇARŞAMBA</Haftanın_Günü>
+        <Ayın_Günü>30</Ayın_Günü>
+        <GeziGünü>12</GeziGünü>
+        <Başlangıç_Noktası>Frankfurt /Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Nürnberg / Almanya</KONAKLAMA>
+        <Otel>B&amp;B Hotel Nürnberg Hbf</Otel>
+        <Yolculuklar>Frankfurt-Würzburg 120km/1,5 saat (ort çıkış:12)
+      Würzburg-Bamberg : 95 km 1 saat (ort çıkış:14)
+      Bamberg-Bayreuth 61 km/50dk (ort çıkış 16:00)
+      Bayreuth Nurnberg: 85km 1 saat</Yolculuklar>
+        <Gezi_Planı>Julius-Maximillians Universitat Würzburg üni gezi
+      
+      Friedrich Alexander Uni Erlangen Nürnberg üni gezi</Gezi_Planı>
+        <Gezilecek_Üniversiteler>Julius-Maximillians Universitat Würzburg
+      Friedrich Alexander Uni Erlangen
+      University of Bamberg
+      University of Bayreuth</Gezilecek_Üniversiteler>
+        <Notlar>Nürnberg otel ayarlama</Notlar>
+      </day>
+      
+      <day>
+        <Tarih>31.07.2025</Tarih>
+        <Haftanın_Günü>PERŞEMBE</Haftanın_Günü>
+        <Ayın_Günü>31</Ayın_Günü>
+        <GeziGünü>13</GeziGünü>
+        <Başlangıç_Noktası>Nürnberg / Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Münih /Almanya</KONAKLAMA>
+        <Otel>Hotel Perlach Allee by Blattl</Otel>
+        <Yolculuklar>Nurnberg-Erlangen: 24km-25
+      Erlangen-Nürnberg 24km-25 
+      Nürnberg -Ragensburg 120 km-1,5 saat
+      Regensburg-Münih 125 km / 1,5 saat</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler>BambergÜni
+      Regensburg üni</Gezilecek_Üniversiteler>
+        <Notlar>Münih otal ayarlama
+      Münih üniversitelere toplu taşıma ulaşımı
+      Münih gezi planı
+      Ausburg görülecek yerler</Notlar>
+      </day>
+      
+      <day>
+        <Tarih>01.08.2025</Tarih>
+        <Haftanın_Günü>CUMA</Haftanın_Günü>
+        <Ayın_Günü>1</Ayın_Günü>
+        <GeziGünü>14</GeziGünü>
+        <Başlangıç_Noktası>Münih /Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Münih / Almanya</KONAKLAMA>
+        <Otel>Hotel Perlach Allee by Blattl</Otel>
+        <Yolculuklar>Münih gezi 
+      Ausburg - opsiyonel</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler>Technical University of Munich
+      Ludwig Maximilian University of Munich</Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      
+      <day>
+        <Tarih>02.08.2025</Tarih>
+        <Haftanın_Günü>CUMARTESİ</Haftanın_Günü>
+        <Ayın_Günü>2</Ayın_Günü>
+        <GeziGünü>15</GeziGünü>
+        <Başlangıç_Noktası>Münih / Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Münih / Almanya</KONAKLAMA>
+        <Otel>Hotel Perlach Allee by Blattl</Otel>
+        <Yolculuklar>Münih gezi</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler>Universitätsviertel section of Augsburg - opsiyonel</Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      
+      <day>
+        <Tarih>03.08.2025</Tarih>
+        <Haftanın_Günü>PAZAR</Haftanın_Günü>
+        <Ayın_Günü>3</Ayın_Günü>
+        <GeziGünü>16</GeziGünü>
+        <Başlangıç_Noktası>Münih / Almanya</Başlangıç_Noktası>
+        <KONAKLAMA>Marghera / İtalya</KONAKLAMA>
+        <Otel>hu Venezia Camping in Town
+      Via Giuseppe De Marchi 7, 30175 Marghera, İtalya</Otel>
+        <Yolculuklar>münih mestre yol - 6 saat / 
+      Mestre konaklama / Garmisch-Partenkirchen &amp; Zugspitze</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar>Mestre otel ayarlama-ZTL zone
+      Venedik gezi planı</Notlar>
+      </day>
+      
+      <day>
+        <Tarih>04.08.2025</Tarih>
+        <Haftanın_Günü>PAZARTESİ</Haftanın_Günü>
+        <Ayın_Günü>4</Ayın_Günü>
+        <GeziGünü>17</GeziGünü>
+        <Başlangıç_Noktası>Marghera / İtalya</Başlangıç_Noktası>
+        <KONAKLAMA>Marghera / Almanya</KONAKLAMA>
+        <Otel>hu Venezia Camping in Town
+      Via Giuseppe De Marchi 7, 30175 Marghera, İtalya</Otel>
+        <Yolculuklar>Venedik</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+        <HavaDurumu>Venedik: 32°C, Güneşli, Nem: %70
+Marghera: 31°C, Açık, Nem: %65</HavaDurumu>
+        <YemeIcmeOnerileri>Venedik: Trattoria Al Gazzettino - Otantik İtalyan mutfağı
+Venedik: Gelateria Nico - Meşhur İtalyan dondurması
+Marghera: Pizzeria Capri - Odun fırınında pişmiş pizzalar</YemeIcmeOnerileri>
+      </day>
+      
+      <day>
+        <Tarih>05.08.2025</Tarih>
+        <Haftanın_Günü>SALI</Haftanın_Günü>
+        <Ayın_Günü>5</Ayın_Günü>
+        <GeziGünü>18</GeziGünü>
+        <Başlangıç_Noktası>Marghera / italya</Başlangıç_Noktası>
+        <KONAKLAMA>Gemi / Igumenitsa</KONAKLAMA>
+        <Otel>Gemi</Otel>
+        <Yolculuklar>(Gemi : 17:30-11:00)</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+        <HavaDurumu>Marghera: 30°C, Parçalı Bulutlu, Nem: %68
+Adriyatik Denizi: 27°C, Açık, Hafif Deniz Meltemi</HavaDurumu>
+        <YemeIcmeOnerileri>Marghera: Osteria ai Quaranta Ladroni - Deniz mahsulleri spesiyaliteleri
+Gemi: Geminin ana restoranı - Akdeniz mutfağı ve İtalyan spesiyaliteleri
+Gemi: Güverte kafe - Hafif atıştırmalıklar ve içecekler</YemeIcmeOnerileri>
+      </day>
+      
+      <day>
+        <Tarih>06.08.2025</Tarih>
+        <Haftanın_Günü>ÇARŞAMBA</Haftanın_Günü>
+        <Ayın_Günü>6</Ayın_Günü>
+        <GeziGünü>19</GeziGünü>
+        <Başlangıç_Noktası>Gemi / Igumenitsa</Başlangıç_Noktası>
+        <KONAKLAMA>Halkidiki-sarti</KONAKLAMA>
+        <Otel>Phoenix Studios by Tania
+      Sarti, Sarti, 63072, Yunanistan</Otel>
+        <Yolculuklar>iguomenitsa - Selanik-jumbo : 343km, 3,5 saat . Varış : 15:30
+      Selanik-jumbo - Halkidiki Phonix otel : 131km, 2 saat . Varış : 19:00</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar>Halkidiki otel ayarlama</Notlar>
+      </day>
+      
+      <day>
+        <Tarih>07.08.2025</Tarih>
+        <Haftanın_Günü>PERŞEMBE</Haftanın_Günü>
+        <Ayın_Günü>7</Ayın_Günü>
+        <GeziGünü>20</GeziGünü>
+        <Başlangıç_Noktası>Halkidiki-sarti</Başlangıç_Noktası>
+        <KONAKLAMA>Halkidiki-sarti</KONAKLAMA>
+        <Otel>Phoenix Studios by Tania
+      Sarti, Sarti, 63072, Yunanistan</Otel>
+        <Yolculuklar>Orange Beach
+      or Paradise Kavourotripes Beach</Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+      
+      <day>
+        <Tarih>08.08.2025</Tarih>
+        <Haftanın_Günü>CUMA</Haftanın_Günü>
+        <Ayın_Günü>8</Ayın_Günü>
+        <GeziGünü>21</GeziGünü>
+        <Başlangıç_Noktası>Halkidiki-sarti</Başlangıç_Noktası>
+        <KONAKLAMA>Enez</KONAKLAMA>
+        <Otel></Otel>
+        <Yolculuklar></Yolculuklar>
+        <Gezi_Planı></Gezi_Planı>
+        <Gezilecek_Üniversiteler></Gezilecek_Üniversiteler>
+        <Notlar></Notlar>
+      </day>
+</trip>
+    </script>
+    <div class="container">
+        <!-- Seyahat Rotası Haritaları -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Seyahat Rotası Haritaları</h5>
+            </div>
+            <div class="card-body">
+                <!-- SVG Özel Çizim Harita -->
+                <div class="mb-4">
+                    <h4 class="mb-3">SVG Özel Çizim Harita</h4>
+                    <div id="svg-map-container" style="height: 500px; width: 100%;"></div>
+                </div>
+                
+                <!-- Metro Stili Harita -->
+                <div class="mb-4">
+                    <h4 class="mb-3">Metro Stili Harita</h4>
+                    <div id="metro-map-container" style="height: 500px; width: 100%;"></div>
+                </div>
+                
+                <!-- Zaman-Mekan Çizelgesi -->
+                <div class="mb-4">
+                    <h4 class="mb-3">Zaman-Mekan Çizelgesi</h4>
+                    <div id="timeline-map-container" style="height: 500px; width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Seyahat Planı Özet Tablosu -->
+        <div class="card mb-4">
+          
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Gün</th>
+                                <th>Tarih</th>
+                                <th>Konaklama</th>
+                                <th>Gezilecek Üniversiteler</th>
+                                <th>Otel</th>
+                                <th>Yolculuklar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="plan-summary">
+                            <!-- JavaScript ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gün Filtreleme Butonları -->
+        <div class="mb-4">
+            <h5 class="mb-3">Güne Göre Filtrele</h5>
+            <div class="btn-group btn-group-sm flex-wrap" role="group" id="dayFilterButtons">
+                <button type="button" class="btn btn-outline-primary active" data-day="all">Tümü</button>
+                <button type="button" class="btn btn-outline-primary" data-day="1">Gün 1</button>
+                <button type="button" class="btn btn-outline-primary" data-day="2">Gün 2</button>
+                <button type="button" class="btn btn-outline-primary" data-day="3">Gün 3</button>
+                <button type="button" class="btn btn-outline-primary" data-day="4">Gün 4</button>
+                <button type="button" class="btn btn-outline-primary" data-day="5">Gün 5</button>
+                <button type="button" class="btn btn-outline-primary" data-day="6">Gün 6</button>
+                <button type="button" class="btn btn-outline-primary" data-day="7">Gün 7</button>
+                <button type="button" class="btn btn-outline-primary" data-day="8">Gün 8</button>
+                <button type="button" class="btn btn-outline-primary" data-day="9">Gün 9</button>
+                <button type="button" class="btn btn-outline-primary" data-day="10">Gün 10</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="11">Gün 11</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="12">Gün 12</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="13">Gün 13</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="14">Gün 14</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="15">Gün 15</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="16">Gün 16</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="17">Gün 17</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="18">Gün 18</button>
+                            <button type="button" class="btn btn-outline-primary" data-day="19">Gün 19</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="cards-container">
+            <div class="loading">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <!-- XML verisi buraya yapıştırılacak -->
+    <script id="seyahat-plani-xml" type="application/xml">
+<trip>
+  <day>
+    <Tarih>19.07.2025</Tarih>
+    <HaftaninGunu>CUMARTESİ</HaftaninGunu>
+    <AyinGunu>19</AyinGunu>
+    <GeziGunu>1</GeziGunu>
+    <BaslangicNoktasi>Enez</BaslangicNoktasi>
+    <Konaklama>Gemi</Konaklama>
+    <Otel>Gemi</Otel>
+    <Yolculuklar>Enez - Igoumenitsa --&gt; 8 Saat, 700km
+Gemiye biniş Igoumenitsa  23:15</Yolculuklar>
+    <GeziPlani>Igumenitsada denize girilebilir?</GeziPlani>
+    <GezilecekUniversiteler></GezilecekUniversiteler>
+    <Notlar>Gemi öncesi yiyecek-içecek</Notlar>
+    <HavaDurumu>Enez: 30°C, Güneşli, Nem: %65
+Igoumenitsa: 28°C, Parçalı Bulutlu, Nem: %70</HavaDurumu>
+    <YemeIcmeOnerileri>Enez: Balık Restoranı - Deniz mahsulleri ve yerel mezeler
+Igoumenitsa: Taverna Ionion - Yunan mutfağı, deniz manzaralı</YemeIcmeOnerileri>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>20.07.2025</Tarih>
+    <Haftanın Günü>PAZAR</Haftanın Günü>
+    <Ayın Günü>20</Ayın Günü>
+    <GeziGünü>2</GeziGünü>
+    <Başlangıç Noktası>Ancona</Başlangıç Noktası>
+    <KONAKLAMA>Milano /İtalya</KONAKLAMA>
+    <Otel>Poste Regie - Milan Guest House
+(118 + 25)
+76 Via Giovanni Battista Cassinis, Ripamonti Corvetto, 20139 Milano, İtalya</Otel>
+    <Yolculuklar>Ancona - Gemiden iniş : 14:30 
+Ancona-Milano (San Donato --&gt; 4,5 saat, 432 km
+Milano Varış : 20:00</Yolculuklar>
+    <Gezi Planı>Milano (20:00)
+Akşam yemeği ve dolaşma </Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>21.07.2025</Tarih>
+    <Haftanın Günü>PAZARTESİ</Haftanın Günü>
+    <Ayın Günü>21</Ayın Günü>
+    <GeziGünü>3</GeziGünü>
+    <Başlangıç Noktası>Milano</Başlangıç Noktası>
+    <KONAKLAMA>Bellinzona/İsviçre</KONAKLAMA>
+    <Otel>Rame Loft per 4 Personne a Bellinzona by easy life Swiss
+5 Via Tommasso Rodari </Otel>
+    <Yolculuklar>Milano - Swissminiatur : 1,5 Saat , 70 km : Çıkış 13:00 - Varış : 14:30
+como - Swissminiatur : 30dk , 27km : Varış : 16:00
+Swissminiatur - Lugano  15dk , 11Km Varış: 16:00
+Lugano - Bellinzona  30dk, 31km Varış: 18:00
+Bellinzona - otel 30 dk</Yolculuklar>
+    <Gezi Planı>Milano Sabah Gezisi (4 Saat)
+Como Gezisi (1,5 saat) - opsiyonel
+Swissminiatur Gezisi (1,5 Saat)
+Lugano akşam gezisi (1 saat)
+Bellinzona Gezisi (1,5 Saat)</Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>22.07.2025</Tarih>
+    <Haftanın Günü>SALI</Haftanın Günü>
+    <Ayın Günü>22</Ayın Günü>
+    <GeziGünü>4</GeziGünü>
+    <Başlangıç Noktası>Bellinzona/İsviçre</Başlangıç Noktası>
+    <KONAKLAMA>Konstanz / Almanya</KONAKLAMA>
+    <Otel>WHLIVING - Apartments &amp; Studios in Konstanz
+(173 + 9)
+Steinstraße 19, Petershausen-West, 78467 Konstanz</Otel>
+    <Yolculuklar>Verdabbio--St Gallen seyahat/211km-2,5 saat  (çıkış 09:00 varış : 11:30)
+St Gallen-Konstanz- 45 km 1 saat Varış 15:00
+Chur(opsiyonel)</Yolculuklar>
+    <Gezi Planı>
+St Gallen gezisi (2 Saat)
+Universitat Konstanz Gezisi (2 Saat)</Gezi Planı>
+    <Gezilecek Üniversiteler>St Gallen Üni
+Universitat Konstanz</Gezilecek Üniversiteler>
+    <Notlar>Yol güzergahı görülecek yerler
+Otel ayarlama</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>23.07.2025</Tarih>
+    <Haftanın Günü>ÇARŞAMBA</Haftanın Günü>
+    <Ayın Günü>23</Ayın Günü>
+    <GeziGünü>5</GeziGünü>
+    <Başlangıç Noktası>Konstanz / Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Freiburg /Almanya</KONAKLAMA>
+    <Otel>Freiburg Apartments Friedrichring
+
+Friedrichring 37, 79098 Freiburg im Breisgau, Almanya
+</Otel>
+    <Yolculuklar>Konstanz  - Europapark : 2 Saat , 160km : Varış : 10:00
+Rust - Freiburg : 30dk, 38km varış : 19:00</Yolculuklar>
+    <Gezi Planı>Europapark</Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar>Europapark bilet
+Otal ayarlama</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>24.07.2025</Tarih>
+    <Haftanın Günü>PERŞEMBE</Haftanın Günü>
+    <Ayın Günü>24</Ayın Günü>
+    <GeziGünü>6</GeziGünü>
+    <Başlangıç Noktası>Freiburg /Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Stuttgart/Almanya</KONAKLAMA>
+    <Otel>Hotel Hansa Stuttgart City</Otel>
+    <Yolculuklar>
+Freiburg - Karsruhe 1,5 saat , 138km Varış : 14:30
+Karlsruhe - Stuttgart - 1Saat , 85km varış : 19:00
+
+Alternatif: Freiburg-strasburg 88km-1.15 saat (varış14:00
+Strasburg-Karlsruhe : 93km-1.16 saat (varış: 16:30)
+Karlsruhe-stuttgart : 76km-1,5 saat</Yolculuklar>
+    <Gezi Planı>Freiburg+Freiburg üni gezi / Öğlen 13e kadar
+freiburg-kıt (1,5 saat)
+Karlsruher Institut (KIT) gezi
+Karlsruhe Stutgart yolculuk (1 saat)</Gezi Planı>
+    <Gezilecek Üniversiteler>Freiburg üni
+Karlsruher Institut (KIT)
+</Gezilecek Üniversiteler>
+    <Notlar>Stuttgart otel ayarlama-otoparklı-rahat ulaşım
+Üniversitelere toplu taşıma nasıl gidilir?</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>25.07.2025</Tarih>
+    <Haftanın Günü>CUMA</Haftanın Günü>
+    <Ayın Günü>25</Ayın Günü>
+    <GeziGünü>7</GeziGünü>
+    <Başlangıç Noktası>Stuttgart/Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Stuttgart / Almanya</KONAKLAMA>
+    <Otel>Hotel Hansa Stuttgart City</Otel>
+    <Yolculuklar>
+Universitat Stuttgart gezisi - Stuttgart gezisi
+
+</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler>
+Universitat Stuttgart</Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>26.07.2025</Tarih>
+    <Haftanın Günü>CUMARTESİ</Haftanın Günü>
+    <Ayın Günü>26</Ayın Günü>
+    <GeziGünü>8</GeziGünü>
+    <Başlangıç Noktası>Stuttgart / Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Metzingen /Almanya</KONAKLAMA>
+    <Otel>Sevis Outlet Apartments</Otel>
+    <Yolculuklar>Stuttgart - Tubingen 45 km yolculuk + gezi + 
+Tubingen-metzingen 23 km+  alışveriş
+
+Universitat Hohenheim opsiyonel</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler>Tubingen Üni
+Universitat Hohenheim-opsiyonel</Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>27.07.2025</Tarih>
+    <Haftanın Günü>PAZAR</Haftanın Günü>
+    <Ayın Günü>27</Ayın Günü>
+    <GeziGünü>9</GeziGünü>
+    <Başlangıç Noktası>Metzingen /Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Mannheim / Almanya</KONAKLAMA>
+    <Otel>Ev</Otel>
+    <Yolculuklar>Stuttgart-Heidelberg 120km / 1,5 saat
+Heidelberg-Mannheim- 20 km-23 dk</Yolculuklar>
+    <Gezi Planı> Sabah Üstertuna kahvaltı
+Heidelberg gezisi + üni??</Gezi Planı>
+    <Gezilecek Üniversiteler>Heidelberg Üni</Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>28.07.2025</Tarih>
+    <Haftanın Günü>PAZARTESİ</Haftanın Günü>
+    <Ayın Günü>28</Ayın Günü>
+    <GeziGünü>10</GeziGünü>
+    <Başlangıç Noktası>Mannheim / Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Mannheim /Almanya</KONAKLAMA>
+    <Otel>Ev</Otel>
+    <Yolculuklar>
+Universitat Mannheim / Heidelberg University
+</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler>Universitat Mannheim 
+Heidelberg University</Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>29.07.2025</Tarih>
+    <Haftanın Günü>SALI</Haftanın Günü>
+    <Ayın Günü>29</Ayın Günü>
+    <GeziGünü>11</GeziGünü>
+    <Başlangıç Noktası>Mannheim /Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Frankfurt /Almanya</KONAKLAMA>
+    <Otel>Belirsiz</Otel>
+    <Yolculuklar>
+Mannheim-Darmstadt 60km / 45 dk (tahmini varış 11:00)
+Darmstadt-Frankfurt 36 km/40 dk (tahmini varış 13:30)</Yolculuklar>
+    <Gezi Planı>Mannheim-Frankfurt seyahat-1 saat
+Frankfurt - Technische Universitat Darmstadt
+Johann Wolfgang Goethe Universitat Frankfurt am Main (Goethe uni)</Gezi Planı>
+    <Gezilecek Üniversiteler>Technische Universitat Darmstadt
+Johann Wolfgang Goethe Universitat Frankfurt </Gezilecek Üniversiteler>
+    <Notlar>Frankfurt otel ayarlama</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>30.07.2025</Tarih>
+    <Haftanın Günü>ÇARŞAMBA</Haftanın Günü>
+    <Ayın Günü>30</Ayın Günü>
+    <GeziGünü>12</GeziGünü>
+    <Başlangıç Noktası>Frankfurt /Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Nürnberg / Almanya</KONAKLAMA>
+    <Otel>B&amp;B Hotel Nürnberg Hbf</Otel>
+    <Yolculuklar>Frankfurt-Würzburg 120km/1,5 saat (ort çıkış:12)
+Würzburg-Bamberg : 95 km 1 saat (ort çıkış:14)
+Bamberg-Bayreuth 61 km/50dk (ort çıkış 16:00)
+Bayreuth Nurnberg: 85km 1 saat
+
+
+</Yolculuklar>
+    <Gezi Planı>Julius-Maximillians Universitat Würzburg üni gezi
+
+Friedrich Alexander Uni Erlangen Nürnberg üni gezi </Gezi Planı>
+    <Gezilecek Üniversiteler>Julius-Maximillians Universitat Würzburg
+Friedrich Alexander Uni Erlangen
+vakit kalırsa bamberg</Gezilecek Üniversiteler>
+    <Notlar>Nürnberg otel ayarlama</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>31.07.2025</Tarih>
+    <Haftanın Günü>PERŞEMBE</Haftanın Günü>
+    <Ayın Günü>31</Ayın Günü>
+    <GeziGünü>13</GeziGünü>
+    <Başlangıç Noktası>Nürnberg / Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Münih /Almanya</KONAKLAMA>
+    <Otel>Hotel Perlach Allee by Blattl</Otel>
+    <Yolculuklar>Nurnberg-Erlangen: 24km-25
+Erlangen-Nürnberg  24km-25 
+Nürnberg -Ragensburg 120 km-1,5 saat
+Regensburg-Münih 125 km / 1,5 saat&quot;</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler>BambergÜni
+ BayreuthÜni
+Regensburg üni</Gezilecek Üniversiteler>
+    <Notlar>Münih otal ayarlama
+Münih üniversitelere toplu taşıma ulaşımı
+Münih gezi planı
+Ausburg görülecek yerler</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>1.08.2025</Tarih>
+    <Haftanın Günü>CUMA</Haftanın Günü>
+    <Ayın Günü>1</Ayın Günü>
+    <GeziGünü>14</GeziGünü>
+    <Başlangıç Noktası>Münih /Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Münih / Almanya</KONAKLAMA>
+    <Otel>Hotel Perlach Allee by Blattl</Otel>
+    <Yolculuklar>Münih gezi 
+Ausburg ??</Yolculuklar>
+    <Gezi Planı>65,66666667</Gezi Planı>
+    <Gezilecek Üniversiteler>TUM ve LMU?
+Ausburg ??</Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>2.08.2025</Tarih>
+    <Haftanın Günü>CUMARTESİ</Haftanın Günü>
+    <Ayın Günü>2</Ayın Günü>
+    <GeziGünü>15</GeziGünü>
+    <Başlangıç Noktası>Münih / Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Münih / Almanya</KONAKLAMA>
+    <Otel>Hotel Perlach Allee by Blattl</Otel>
+    <Yolculuklar>Münih gezi</Yolculuklar>
+    <Gezi Planı>61</Gezi Planı>
+    <Gezilecek Üniversiteler>Ausburg?</Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>3.08.2025</Tarih>
+    <Haftanın Günü>PAZAR</Haftanın Günü>
+    <Ayın Günü>3</Ayın Günü>
+    <GeziGünü>16</GeziGünü>
+    <Başlangıç Noktası>Münih / Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Marghera / İtalya</KONAKLAMA>
+    <Otel>hu Venezia Camping in Town
+
+Via Giuseppe De Marchi 7, 30175 Marghera, İtalya</Otel>
+    <Yolculuklar>münih mestre yol - 6 saat / 
+Mestre konaklama / Garmisch-Partenkirchen &amp; Zugspitze</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar>Mestre otel ayarlama-ZTL zone
+Venedik gezi planı</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>4.08.2025</Tarih>
+    <Haftanın Günü>PAZARTESİ</Haftanın Günü>
+    <Ayın Günü>4</Ayın Günü>
+    <GeziGünü>17</GeziGünü>
+    <Başlangıç Noktası>Marghera / İtalya</Başlangıç Noktası>
+    <KONAKLAMA>Marghera / Almanya</KONAKLAMA>
+    <Otel>hu Venezia Camping in Town
+Via Giuseppe De Marchi 7, 30175 Marghera, İtalya</Otel>
+    <Yolculuklar>Venedik</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>5.08.2025</Tarih>
+    <Haftanın Günü>SALI</Haftanın Günü>
+    <Ayın Günü>5</Ayın Günü>
+    <GeziGünü>18</GeziGünü>
+    <Başlangıç Noktası>Marghera / Almanya</Başlangıç Noktası>
+    <KONAKLAMA>Gemi / Igumenitsa</KONAKLAMA>
+    <Otel>Gemi</Otel>
+    <Yolculuklar>(Gemi : 17:30-11:00)</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>6.08.2025</Tarih>
+    <Haftanın Günü>ÇARŞAMBA</Haftanın Günü>
+    <Ayın Günü>6</Ayın Günü>
+    <GeziGünü>19</GeziGünü>
+    <Başlangıç Noktası>Gemi / Igumenitsa</Başlangıç Noktası>
+    <KONAKLAMA>Halkidiki-sarti</KONAKLAMA>
+    <Otel>Phoenix Studios by Tania
+Sarti, Sarti, 63072, Yunanistan</Otel>
+    <Yolculuklar>iguomenitsa - Selanik-jumbo : 343km, 3,5 saat . Varış : 15:30
+Selanik-jumbo - Halkidiki Phonix otel  : 131km, 2 saat . Varış : 19:00</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar>Halkidiki otel ayarlama</Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>7.08.2025</Tarih>
+    <Haftanın Günü>PERŞEMBE</Haftanın Günü>
+    <Ayın Günü>7</Ayın Günü>
+    <GeziGünü>20</GeziGünü>
+    <Başlangıç Noktası>Halkidiki-sarti</Başlangıç Noktası>
+    <KONAKLAMA>Halkidiki-sarti</KONAKLAMA>
+    <Otel>Phoenix Studios by Tania
+Sarti, Sarti, 63072, Yunanistan</Otel>
+    <Yolculuklar>Orange Beach
+or Paradise Kavourotripes Beach</Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+  <day>
+    <Tarih>8.08.2025</Tarih>
+    <Haftanın Günü>CUMA</Haftanın Günü>
+    <Ayın Günü>8</Ayın Günü>
+    <GeziGünü>21</GeziGünü>
+    <Başlangıç Noktası>Halkidiki-sarti</Başlangıç Noktası>
+    <KONAKLAMA>Enez</KONAKLAMA>
+    <Otel></Otel>
+    <Yolculuklar></Yolculuklar>
+    <Gezi Planı></Gezi Planı>
+    <Gezilecek Üniversiteler></Gezilecek Üniversiteler>
+    <Notlar></Notlar>
+    <FIELD12></FIELD12>
+  </day>
+</trip>
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Gömülü XML içeriğini al
+                const xmlElement = document.getElementById('seyahat-plani-xml');
+                
+                if (!xmlElement) {
+                    throw new Error('seyahat-plani-xml elementi bulunamadı!');
+                }
+                
+                // XML içeriğini düzelt
+                let xmlContent = xmlElement.textContent;
+                
+                // XML içeriğini düzeltmek için regex kullan
+                // Etiket adlarındaki boşlukları ve Türkçe karakterleri düzelt
+                xmlContent = xmlContent.replace(/<Haftanın Günü>(.*?)<\/Haftanın Günü>/gs, '<HaftaninGunu>$1<\/HaftaninGunu>');
+                xmlContent = xmlContent.replace(/<Ayın Günü>(.*?)<\/Ayın Günü>/gs, '<AyinGunu>$1<\/AyinGunu>');
+                xmlContent = xmlContent.replace(/<GeziGünü>(.*?)<\/GeziGünü>/gs, '<GeziGunu>$1<\/GeziGunu>');
+                xmlContent = xmlContent.replace(/<Başlangıç Noktası>(.*?)<\/Başlangıç Noktası>/gs, '<BaslangicNoktasi>$1<\/BaslangicNoktasi>');
+                xmlContent = xmlContent.replace(/<KONAKLAMA>(.*?)<\/KONAKLAMA>/gs, '<Konaklama>$1<\/Konaklama>');
+                xmlContent = xmlContent.replace(/<Gezi Planı>(.*?)<\/Gezi Planı>/gs, '<GeziPlani>$1<\/GeziPlani>');
+                xmlContent = xmlContent.replace(/<Gezilecek Üniversiteler>(.*?)<\/Gezilecek Üniversiteler>/gs, '<GezilecekUniversiteler>$1<\/GezilecekUniversiteler>');
+                
+                                
+                // XML içeriğindeki diğer Türkçe karakterleri düzelt
+                xmlContent = xmlContent.replace(/ç/g, 'c');
+                xmlContent = xmlContent.replace(/Ç/g, 'C');
+                xmlContent = xmlContent.replace(/ğ/g, 'g');
+                xmlContent = xmlContent.replace(/Ğ/g, 'G');
+                xmlContent = xmlContent.replace(/ı/g, 'i');
+                xmlContent = xmlContent.replace(/İ/g, 'I');
+                xmlContent = xmlContent.replace(/ö/g, 'o');
+                xmlContent = xmlContent.replace(/Ö/g, 'O');
+                xmlContent = xmlContent.replace(/ş/g, 's');
+                xmlContent = xmlContent.replace(/Ş/g, 'S');
+                xmlContent = xmlContent.replace(/ü/g, 'u');
+                xmlContent = xmlContent.replace(/Ü/g, 'U');
+                
+                // Düzeltilmiş XML içeriğini parse et
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+                
+                // Hata kontrolü
+                const parseError = xmlDoc.getElementsByTagName('parsererror');
+                if (parseError.length > 0) {
+                    throw new Error('XML parse hatası: ' + parseError[0].textContent);
+                }
+                
+                // Tüm günleri al
+                const days = xmlDoc.getElementsByTagName('day');
+                
+                if (days.length === 0) {
+                    // XML içeriğini doğrudan göster
+                    document.getElementById('cards-container').innerHTML = 
+                        '<div class="alert alert-danger">Gün bilgisi bulunamadı. XML içeriği:<\/div>' +
+                        '<pre style="background:#eee;padding:10px;overflow:auto;max-height:300px">' + 
+                        xmlContent.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '<\/pre>';
+                    return;
+                }
+                
+                // Yükleme mesajını kaldır
+                document.querySelector('.loading').remove();
+                
+                // Günleri işle ve kartları oluştur
+                await renderCards(days);
+                
+                // Sayfa yüksekliğini ana sayfaya bildir
+                setTimeout(function() {
+                    const height = document.body.scrollHeight;
+                    window.parent.postMessage({ type: 'resize', height: height }, '*');
+                }, 500);
+                
+                console.log('Tüm gün kartları yüklendi ve dinamik veriler eklendi.');
+            } catch (error) {
+                console.error('Hata oluştu:', error);
+                document.getElementById('cards-container').innerHTML = 
+                    '<div class="alert alert-danger">Bir hata oluştu: ' + error.message + '<\/div>';
+            }
+        });
+        
+        // Ana sayfaya yüksekliği bildir
+        function updateParentHeight() {
+            setTimeout(function() {
+                const height = document.body.scrollHeight;
+                window.parent.postMessage({ type: 'resize', height: height }, '*');
+            }, 200);
+        }
+        
+        async function renderCards(days) {
+            const cardsContainer = document.getElementById('cards-container');
+            cardsContainer.innerHTML = '';
+            
+            // Her gün için kart oluştur
+            for (let i = 0; i < days.length; i++) {
+                const day = days[i];
+                const card = await createDayCard(day, i + 1);
+                cardsContainer.appendChild(card);
+            }
+            
+            // Yüksekliği güncelle
+            updateParentHeight();
+        }
+        
+        async function createDayCard(day, dayNumber) {
+            // Gerekli verileri XML'den çıkar
+            const tarih = getElementTextContent(day, 'Tarih');
+            const haftaninGunu = getElementTextContent(day, 'HaftaninGunu');
+            const geziGunu = getElementTextContent(day, 'GeziGunu');
+            const baslangicNoktasi = getElementTextContent(day, 'BaslangicNoktasi');
+            const konaklama = getElementTextContent(day, 'Konaklama');
+            const otel = getElementTextContent(day, 'Otel');
+            const yolculuklar = getElementTextContent(day, 'Yolculuklar');
+            const geziPlani = getElementTextContent(day, 'GeziPlani');
+            const gezilecekUniversiteler = getElementTextContent(day, 'GezilecekUniversiteler');
+            const notlar = getElementTextContent(day, 'Notlar');
+            
+            // XML'den hava durumu ve yeme-içme önerilerini al (yedek olarak)
+            const havaDurumuXML = getElementTextContent(day, 'HavaDurumu');
+            const yemeIcmeOnerileriXML = getElementTextContent(day, 'YemeIcmeOnerileri');
+            
+            // Konum bilgilerini al
+            const baslangicSehir = baslangicNoktasi.split('/')[0].trim();
+            const konaklamaSehir = konaklama.split('/')[0].trim();
+            
+            // Kart oluştur
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.dayNumber = geziGunu;
+            
+            // Üniversite ziyareti var mı kontrol et
+            if (gezilecekUniversiteler && gezilecekUniversiteler.trim() !== '') {
+                card.dataset.hasUniversity = 'true';
+            }
+            
+            // Kart başlığı
+            const cardHeader = document.createElement('div');
+            cardHeader.className = 'card-header';
+            cardHeader.innerHTML = `
+                <div class="day-info">
+                    <div class="day-number">${geziGunu}</div>
+                    <h2>${baslangicNoktasi} - ${konaklama}</h2>
+                </div>
+                <div class="date-info">
+                    <div>${tarih}</div>
+                    <div>${haftaninGunu}</div>
+                </div>
+            `;
+            card.appendChild(cardHeader);
+            
+            // Kart içeriği
+            const cardBody = document.createElement('div');
+            cardBody.className = 'card-body';
+            
+            // Dinamik hava durumu verilerini al
+            let havaDurumu = havaDurumuXML; // Varsayılan olarak XML'den gelen veriyi kullan
+            let yemeIcmeOnerileri = yemeIcmeOnerileriXML; // Varsayılan olarak XML'den gelen veriyi kullan
+            
+            // Hava durumu verilerini API'den almaya çalış
+            try {
+                // Başlangıç ve konaklama şehirleri için hava durumu verilerini al
+                const baslangicWeather = await getWeatherData(baslangicSehir);
+                const konaklamaWeather = await getWeatherData(konaklamaSehir);
+                
+                // Eğer API'den veri alınabildiyse, havaDurumu değişkenini güncelle
+                if (baslangicWeather || konaklamaWeather) {
+                    havaDurumu = '';
+                    
+                    if (baslangicWeather) {
+                        havaDurumu += `${baslangicSehir}: ${baslangicWeather.temp}°C, ${baslangicWeather.description}, Nem: %${baslangicWeather.humidity}\n`;
+                    }
+                    
+                    if (konaklamaWeather && baslangicSehir !== konaklamaSehir) {
+                        havaDurumu += `${konaklamaSehir}: ${konaklamaWeather.temp}°C, ${konaklamaWeather.description}, Nem: %${konaklamaWeather.humidity}`;
+                    }
+                }
+                
+                // Eğer havaDurumu boşsa, XML'den gelen veriyi kullan
+                if (!havaDurumu || havaDurumu.trim() === '') {
+                    havaDurumu = havaDurumuXML;
+                }
+                
+                console.log('Dinamik hava durumu verileri:', havaDurumu);
+                
+                // Yeme-içme önerilerini dinamik olarak al
+                const baslangicFoodRecs = getFoodRecommendations(baslangicSehir);
+                const konaklamaFoodRecs = getFoodRecommendations(konaklamaSehir);
+                
+                console.log(`Gün ${geziGunu} için yeme-içme önerileri alınıyor:`, baslangicSehir, konaklamaSehir);
+                console.log('Başlangıç şehri önerileri:', baslangicFoodRecs);
+                console.log('Konaklama şehri önerileri:', konaklamaFoodRecs);
+                
+                // Yeme-içme önerilerini güncelle
+                if (baslangicFoodRecs || konaklamaFoodRecs) {
+                    yemeIcmeOnerileri = '';
+                    
+                    if (baslangicFoodRecs && baslangicFoodRecs.length > 0) {
+                        yemeIcmeOnerileri += `${baslangicSehir}:\n`;
+                        baslangicFoodRecs.forEach(rec => {
+                            yemeIcmeOnerileri += `- ${rec}\n`;
+                        });
+                    }
+                    
+                    if (konaklamaFoodRecs && konaklamaFoodRecs.length > 0 && baslangicSehir !== konaklamaSehir) {
+                        if (yemeIcmeOnerileri) yemeIcmeOnerileri += '\n';
+                        yemeIcmeOnerileri += `${konaklamaSehir}:\n`;
+                        konaklamaFoodRecs.forEach(rec => {
+                            yemeIcmeOnerileri += `- ${rec}\n`;
+                        });
+                    }
+                }
+                
+                // Her durumda dinamik yeme-içme önerilerini kullan
+                // XML'den gelen veriyi sadece debug amaçlı logla
+                console.log(`Gün ${geziGunu} için XML'den gelen yeme-içme önerileri:`, yemeIcmeOnerileriXML);
+                console.log(`Gün ${geziGunu} için dinamik oluşturulan yeme-içme önerileri:`, yemeIcmeOnerileri);
+                
+                // Dinamik öneriler boşsa ve XML'den gelen veri varsa, XML'den gelen veriyi kullan
+                if ((!yemeIcmeOnerileri || yemeIcmeOnerileri.trim() === '') && yemeIcmeOnerileriXML && yemeIcmeOnerileriXML.trim() !== '') {
+                    yemeIcmeOnerileri = yemeIcmeOnerileriXML;
+                    console.log(`Gün ${geziGunu} için XML'den gelen yeme-içme önerileri kullanılıyor`);
+                } else if (!yemeIcmeOnerileri || yemeIcmeOnerileri.trim() === '') {
+                    // Her iki kaynak da boşsa, varsayılan öneriler oluştur
+                    yemeIcmeOnerileri = `${baslangicSehir}:\n- Yerel restoranlar - Bölgeye özgü lezzetler\n- Pazar yerleri - Taze ürünler ve sokak lezzetleri\n- Kafe ve pastaneler - Yerel tatlılar`;
+                    console.log(`Gün ${geziGunu} için varsayılan yeme-içme önerileri oluşturuldu`);
+                }
+                
+                console.log('Dinamik yeme-içme önerileri:', yemeIcmeOnerileri);
+            } catch (error) {
+                console.error('Dinamik veriler alınırken hata oluştu:', error);
+                // Hata durumunda XML'den gelen verileri kullan
+                havaDurumu = havaDurumuXML;
+                yemeIcmeOnerileri = yemeIcmeOnerileriXML;
+            }
+            
+            // Rota özeti
+            if (yolculuklar && yolculuklar.trim() !== '') {
+                const routeSummary = document.createElement('div');
+                routeSummary.className = 'route-summary';
+                routeSummary.innerHTML = `
+                    <div class="route-text">${baslangicNoktasi} - ${konaklama}</div>
+                `;
+                
+                // Yolculuk detaylarını ekle
+                const yolculuklarArray = yolculuklar.split('\n');
+                yolculuklarArray.forEach(yolculuk => {
+                    if (yolculuk.trim() !== '') {
+                        const routeDetail = document.createElement('div');
+                        routeDetail.className = 'route-details';
+                        routeDetail.textContent = yolculuk.trim();
+                        routeSummary.appendChild(routeDetail);
+                    }
+                });
+                
+                cardBody.appendChild(routeSummary);
+            }
+            
+            // İçerik bölümü
+            const contentSection = document.createElement('div');
+            contentSection.className = 'content-section';
+            
+            // Konaklama bilgisi
+            if (otel && otel.trim() !== '') {
+                const accommodationSection = document.createElement('h4');
+                accommodationSection.className = 'section-title';
+                accommodationSection.innerHTML = '<i class="fas fa-hotel"></i> Konaklama';
+                contentSection.appendChild(accommodationSection);
+                
+                const accommodationInfo = document.createElement('div');
+                accommodationInfo.className = 'accommodation-info';
+                accommodationInfo.innerHTML = `
+                    <div class="icon">
+                        <i class="fas fa-hotel"></i>
+                    </div>
+                    <div class="details">
+                        <h5>${otel.split('\n')[0]}</h5>
+                        <p>${otel.split('\n').slice(1).join('<br>')}</p>
+                    </div>
+                `;
+                contentSection.appendChild(accommodationInfo);
+            }
+            
+            // Gezi planı
+            if (geziPlani && geziPlani.trim() !== '') {
+                const programSection = document.createElement('h4');
+                programSection.className = 'section-title';
+                programSection.innerHTML = '<i class="fas fa-calendar-alt"></i> Program';
+                contentSection.appendChild(programSection);
+                
+                const geziPlaniArray = geziPlani.split('\n');
+                geziPlaniArray.forEach(plan => {
+                    if (plan.trim() !== '') {
+                        const programItem = document.createElement('div');
+                        programItem.className = 'program-item';
+                        
+                        // Zamanı ve içeriği ayır (varsa)
+                        const planParts = plan.split(':');
+                        if (planParts.length > 1) {
+                            programItem.innerHTML = `
+                                <div class="time">${planParts[0].trim()}</div>
+                                <div class="content">
+                                    <h5>${planParts.slice(1).join(':').trim()}</h5>
+                                </div>
+                            `;
+                        } else {
+                            programItem.innerHTML = `
+                                <div class="time">Gün Boyu</div>
+                                <div class="content">
+                                    <h5>${plan.trim()}</h5>
+                                </div>
+                            `;
+                        }
+                        
+                        contentSection.appendChild(programItem);
+                    }
+                });
+            }
+            
+            // Üniversiteler
+            if (gezilecekUniversiteler && gezilecekUniversiteler.trim() !== '') {
+                const universitySection = document.createElement('div');
+                universitySection.className = 'university-section';
+                universitySection.innerHTML = `
+                    <h4><i class="fas fa-university"></i> Gezilecek Üniversiteler</h4>
+                `;
+                
+                const universitelerArray = gezilecekUniversiteler.split('\n');
+                universitelerArray.forEach(uni => {
+                    if (uni.trim() !== '') {
+                        const universityItem = document.createElement('div');
+                        universityItem.className = 'university-item';
+                        universityItem.innerHTML = `
+                            <div class="university-icon">
+                                <i class="fas fa-university"></i>
+                            </div>
+                            <div class="university-content">
+                                <h5>${uni.trim()}</h5>
+                            </div>
+                        `;
+                        universitySection.appendChild(universityItem);
+                    }
+                });
+                
+                contentSection.appendChild(universitySection);
+            }
+            
+            cardBody.appendChild(contentSection);
+            
+            // Hava Durumu
+            if (havaDurumu && havaDurumu.trim() !== '') {
+                const weatherSection = document.createElement('div');
+                weatherSection.className = 'weather-section';
+                weatherSection.innerHTML = `
+                    <h5><i class="fas fa-cloud-sun"></i> Hava Durumu</h5>
+                `;
+                
+                const havaDurumuArray = havaDurumu.split('\n');
+                havaDurumuArray.forEach(hava => {
+                    if (hava.trim() !== '') {
+                        const weatherItem = document.createElement('div');
+                        weatherItem.className = 'weather-item';
+                        
+                        // Şehir ve hava durumu bilgilerini ayır
+                        const havaParts = hava.split(':');
+                        if (havaParts.length > 1) {
+                            const city = havaParts[0].trim();
+                            const weatherInfo = havaParts[1].trim();
+                            
+                            // Sıcaklık ve diğer bilgileri ayır
+                            const tempMatch = weatherInfo.match(/(\d+)°C/);
+                            const temp = tempMatch ? tempMatch[1] : '';
+                            
+                            // Hava durumu açıklaması (Güneşli, Bulutlu, vb.)
+                            let weatherDesc = weatherInfo;
+                            if (tempMatch) {
+                                weatherDesc = weatherInfo.split(',').slice(1).join(',').trim();
+                            }
+                            
+                            // Hava durumu ikonu seç
+                            let weatherIcon = 'fa-cloud-sun';
+                            if (weatherDesc.includes('Güneşli') || weatherDesc.includes('Açık')) {
+                                weatherIcon = 'fa-sun';
+                            } else if (weatherDesc.includes('Bulutlu')) {
+                                weatherIcon = weatherDesc.includes('Parçalı') ? 'fa-cloud-sun' : 'fa-cloud';
+                            } else if (weatherDesc.includes('Yağmur') || weatherDesc.includes('Yağışlı')) {
+                                weatherIcon = 'fa-cloud-rain';
+                            }
+                            
+                            weatherItem.innerHTML = `
+                                <div class="weather-icon">
+                                    <i class="fas ${weatherIcon}"></i>
+                                </div>
+                                <div class="weather-content">
+                                    <h6>${city}</h6>
+                                    <div class="weather-details">
+                                        <span class="temperature">${temp}°C</span>
+                                        <span class="description">${weatherDesc}</span>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            weatherItem.textContent = hava.trim();
+                        }
+                        
+                        weatherSection.appendChild(weatherItem);
+                    }
+                });
+                
+                cardBody.appendChild(weatherSection);
+            }
+            
+            // Yeme-İçme Önerileri kaldırıldı (kullanıcı isteği üzerine)
+            
+            // Notlar
+            if (notlar && notlar.trim() !== '') {
+                const notesSection = document.createElement('div');
+                notesSection.className = 'notes-section';
+                notesSection.innerHTML = `
+                    <h5><i class="fas fa-sticky-note"></i> Notlar</h5>
+                `;
+                
+                const notlarArray = notlar.split('\n');
+                notlarArray.forEach(not => {
+                    if (not.trim() !== '') {
+                        const noteParagraph = document.createElement('p');
+                        noteParagraph.textContent = not.trim();
+                        notesSection.appendChild(noteParagraph);
+                    }
+                });
+                
+                cardBody.appendChild(notesSection);
+            }
+            
+            card.appendChild(cardBody);
+            return card;
+        }
+        
+        function getElementTextContent(parent, tagName) {
+            console.log('Aranan etiket:', tagName);
+            
+            // Önce doğrudan etiket adıyla arama
+            let element = parent.getElementsByTagName(tagName)[0];
+            
+            // Bulunamazsa, alt çizgili versiyonunu dene
+            if (!element) {
+                const altCizgiliTagName = tagName.replace(/([A-Z])/g, '_$1').replace(/^_/, '');
+                element = parent.getElementsByTagName(altCizgiliTagName)[0];
+            }
+            
+            // Bulunamazsa, Türkçe karakterli versiyonları dene
+            if (!element) {
+                const turkceTagName = tagName
+                    .replace(/i/g, 'ı')
+                    .replace(/I/g, 'İ')
+                    .replace(/c/g, 'c')
+                    .replace(/C/g, 'Ç')
+                    .replace(/g/g, 'ğ')
+                    .replace(/G/g, 'Ğ')
+                    .replace(/s/g, 'ş')
+                    .replace(/S/g, 'Ş')
+                    .replace(/u/g, 'ü')
+                    .replace(/U/g, 'Ü')
+                    .replace(/o/g, 'ö')
+                    .replace(/O/g, 'Ö');
+                
+                element = parent.getElementsByTagName(turkceTagName)[0];
+            }
+            
+            // Bulunamazsa, alt çizgili ve Türkçe karakterli versiyonu dene
+            if (!element) {
+                const turkceAltCizgiliTagName = tagName
+                    .replace(/([A-Z])/g, '_$1').replace(/^_/, '')
+                    .replace(/i/g, 'ı')
+                    .replace(/I/g, 'İ')
+                    .replace(/c/g, 'c')
+                    .replace(/C/g, 'Ç')
+                    .replace(/g/g, 'ğ')
+                    .replace(/G/g, 'Ğ')
+                    .replace(/s/g, 'ş')
+                    .replace(/S/g, 'Ş')
+                    .replace(/u/g, 'ü')
+                    .replace(/U/g, 'Ü')
+                    .replace(/o/g, 'ö')
+                    .replace(/O/g, 'Ö');
+                
+                element = parent.getElementsByTagName(turkceAltCizgiliTagName)[0];
+            }
+            
+            console.log('Bulunan eleman:', element);
+            return element ? element.textContent : '';
+        }
+        
+        // Etiket adını normalize etme fonksiyonu
+        function normalizeTagName(tagName) {
+            // Türkçe karakterleri düzelt
+            const turkishChars = {
+                'ç': 'c', 'Ç': 'C',
+                'ğ': 'g', 'Ğ': 'G',
+                'ı': 'i', 'İ': 'I',
+                'ö': 'o', 'Ö': 'O',
+                'ş': 's', 'Ş': 'S',
+                'ü': 'u', 'Ü': 'U'
+            };
+            
+            // Boşlukları kaldır ve tüm harfleri küçük yap
+            let normalized = tagName.toLowerCase();
+            
+            // Türkçe karakterleri değiştir
+            for (const [turkishChar, latinChar] of Object.entries(turkishChars)) {
+                normalized = normalized.replace(new RegExp(turkishChar, 'g'), latinChar);
+            }
+            
+            // Boşlukları tire ile değiştir
+            normalized = normalized.replace(/\s+/g, '-');
+            
+            return normalized;
+        }
+        
+        // Hava durumu API için değişkenler
+        // OpenWeatherMap'ten ücretsiz API anahtarı almak için:
+        // 1. https://openweathermap.org/ adresine gidin
+        // 2. "Sign Up" veya "Create an Account" butonuna tıklayın
+        // 3. Gerekli bilgileri doldurarak ücretsiz bir hesap oluşturun
+        // 4. Hesabınızı oluşturduktan sonra, "API keys" bölümüne gidin
+        // 5. Size otomatik olarak verilen API anahtarını aşağıya yapıştırın
+        const WEATHER_API_KEY = '40525470ebf52443ec9e27b20f321b76'; // Bu kısmı gerçek API anahtarınız ile değiştirin
+        const weatherCache = {}; // Hava durumu verilerini önbelleğe almak için
+        
+        // Hava durumu verilerini almak için fonksiyon
+        async function getWeatherData(city) {
+            // Şehir adı zaten önbellekte var mı kontrol et
+            if (weatherCache[city]) {
+                console.log('Hava durumu önbellekten alındı:', city);
+                return weatherCache[city];
+            }
+            
+            try {
+                const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=metric&appid=${WEATHER_API_KEY}&lang=tr`);
+                
+                if (!response.ok) {
+                    throw new Error(`Hava durumu verisi alınamadı: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Hava durumu verilerini formatlama
+                const weatherData = {
+                    temp: Math.round(data.main.temp),
+                    description: data.weather[0].description,
+                    humidity: data.main.humidity,
+                    icon: data.weather[0].icon,
+                    windSpeed: data.wind.speed
+                };
+                
+                // Önbelleğe al
+                weatherCache[city] = weatherData;
+                console.log('Hava durumu API\'den alındı:', city);
+                
+                return weatherData;
+            } catch (error) {
+                console.error('Hava durumu API hatası:', error);
+                return null;
+            }
+        }
+        
+        // Hava durumu ikonunu seçmek için fonksiyon
+        function getWeatherIcon(iconCode) {
+            const iconMap = {
+                '01d': 'fa-sun', // Açık (gündüz)
+                '01n': 'fa-moon', // Açık (gece)
+                '02d': 'fa-cloud-sun', // Az bulutlu (gündüz)
+                '02n': 'fa-cloud-moon', // Az bulutlu (gece)
+                '03d': 'fa-cloud', // Parçalı bulutlu
+                '03n': 'fa-cloud',
+                '04d': 'fa-cloud', // Bulutlu
+                '04n': 'fa-cloud',
+                '09d': 'fa-cloud-showers-heavy', // Sağanak yağışlı
+                '09n': 'fa-cloud-showers-heavy',
+                '10d': 'fa-cloud-rain', // Yağmurlu (gündüz)
+                '10n': 'fa-cloud-rain', // Yağmurlu (gece)
+                '11d': 'fa-bolt', // Gök gürültülü fırtına
+                '11n': 'fa-bolt',
+                '13d': 'fa-snowflake', // Karlı
+                '13n': 'fa-snowflake',
+                '50d': 'fa-smog', // Sisli
+                '50n': 'fa-smog'
+            };
+            
+            return iconMap[iconCode] || 'fa-cloud';
+        }
+        
+        // Şehir adından konum bilgilerini almak için fonksiyon
+        async function getCityCoordinates(city) {
+            try {
+                const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${WEATHER_API_KEY}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Şehir koordinatları alınamadı: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    throw new Error(`"${city}" için konum bulunamadı`);
+                }
+                
+                return {
+                    lat: data[0].lat,
+                    lon: data[0].lon,
+                    country: data[0].country
+                };
+            } catch (error) {
+                console.error('Şehir koordinatları API hatası:', error);
+                return null;
+            }
+        }
+        
+        // Şehir adına göre yeme-içme önerileri sunan fonksiyon
+        function getFoodRecommendations(city) {
+            // Şehir adını küçük harfe çevir ve Türkçe karakterleri normalize et
+            const normalizedCity = city.toLowerCase()
+                .replace(/ç/g, 'c')
+                .replace(/ğ/g, 'g')
+                .replace(/ı/g, 'i')
+                .replace(/ö/g, 'o')
+                .replace(/ş/g, 's')
+                .replace(/ü/g, 'u');
+            
+            console.log('Yeme-içme önerileri için normalize edilmiş şehir:', normalizedCity);
+            
+            // Önceden tanımlanmış öneriler
+            const recommendations = {
+                'berlin': [
+                    'Curry 36 - Berlin\'in meşhur currywurst\'u',
+                    'Burgermeister - En iyi hamburgerler',
+                    'Markthalle Neun - Yerel lezzetler ve sokak yemeği'
+                ],
+                'munih': [
+                    'Hofbräuhaus - Geleneksel Bavyera mutfağı',
+                    'Viktualienmarkt - Taze ürünler ve yerel lezzetler',
+                    'Augustiner Keller - Otantik Alman birahane deneyimi'
+                ],
+                'frankfurt': [
+                    'Kleinmarkthalle - Yerel ve uluslararası lezzetler',
+                    'Apfelwein Wagner - Geleneksel elma şarabı ve Alman yemekleri',
+                    'Zum Gemalten Haus - Sachsenhausen bölgesinde otantik lezzetler'
+                ],
+                'hamburg': [
+                    'Fischmarkt - Taze deniz ürünleri',
+                    'Bullerei - Ünlü şef Tim Mälzer\'in restorantı',
+                    'Elbphilharmonie Plaza - Muhteşem manzara eşliğinde yemek'
+                ],
+                'venedik': [
+                    'Trattoria Al Gazzettino - Otantik İtalyan mutfağı',
+                    'Gelateria Nico - Meşhur İtalyan dondurması',
+                    'Osteria Alla Staffa - Yerel Venedik lezzetleri'
+                ],
+                'roma': [
+                    'Da Enzo al 29 - Otantik Roma mutfağı',
+                    'Pizzarium - Roma\'nın en iyi pizza dilimleri',
+                    'Gelateria dei Gracchi - Gerçek İtalyan dondurması'
+                ],
+                'marghera': [
+                    'Pizzeria Capri - Odun fırınında pişmiş pizzalar',
+                    'Trattoria Dalla Mora - Ev yapımı makarnalar',
+                    'Osteria Al Diplomatico - Yerel İtalyan mutfağı'
+                ],
+                'selanik': [
+                    'Ta Nióta - Geleneksel Yunan mezeler',
+                    'Extravaganza - Modern Yunan mutfağı',
+                    'Ladadika bölgesi - Çeşitli taverna ve restoranlar'
+                ],
+                'halkidiki': [
+                    'Taverna Sarti - Taze deniz ürünleri',
+                    'Aristos - Otantik Yunan mutfağı',
+                    'Sousourada - Yerel şarap ve mezeler'
+                ],
+                'enez': [
+                    'Enez Balık Lokantası - Taze deniz ürünleri',
+                    'Enez Meyhanesi - Geleneksel Trakya mezeler',
+                    'Sahil Restoranı - Deniz manzaralı Ege lezzetleri'
+                ],
+                'edirne': [
+                    'Ciğerci Niyazi Usta - Meşhur Edirne ciğeri',
+                    'Koç Cunda - Tava ciğer ve köfte',
+                    'Hanedan Restoran - Edirne\'nin geleneksel lezzetleri'
+                ],
+                'kesan': [
+                    'Keşan Köftecisi - Trakya usulü köfte',
+                    'Balıkçı Mehmet - Taze deniz ürünleri',
+                    'Saray Lokantası - Ev yemekleri'
+                ]
+            };
+            
+            // Şehir için öneriler varsa döndür, yoksa varsayılan önerileri döndür
+            // Önce tam eşleşme ara
+            if (recommendations[normalizedCity]) {
+                console.log(`Tam eşleşme bulundu: ${normalizedCity}`);
+                return recommendations[normalizedCity];
+            }
+            
+            // Tam eşleşme yoksa, içeren bir anahtar ara
+            for (const key in recommendations) {
+                if (normalizedCity.includes(key) || key.includes(normalizedCity)) {
+                    console.log(`Kısmi eşleşme bulundu: ${normalizedCity} -> ${key}`);
+                    return recommendations[key];
+                }
+            }
+            
+            console.log(`Eşleşme bulunamadı: ${normalizedCity}, varsayılan öneriler kullanılıyor`);
+            return recommendations['default'];
+        }
+        
+        // Harita ve katmanları tanımla
+        let map;
+        let universitiesLayer;
+        let accommodationsLayer;
+        let routesLayer;
+        let gasStationsLayer;
+        let currentDayFilter = 'all';
+        
+        // Harita başlangıç noktası (Avrupa ortası)
+        const defaultCenter = [48.0, 10.0];
+        const defaultZoom = 5;
+        
+        // Marker simgeleri
+        const universityIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color:#4285F4;" class="marker-pin"></div><i class="fas fa-university"></i>',
+            iconSize: [30, 42],
+            iconAnchor: [15, 42]
+        });
+        
+        const accommodationIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color:#DB4437;" class="marker-pin"></div><i class="fas fa-bed"></i>',
+            iconSize: [30, 42],
+            iconAnchor: [15, 42]
+        });
+        
+        const gasStationIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color:#F4B400;" class="marker-pin"></div><i class="fas fa-gas-pump"></i>',
+            iconSize: [30, 42],
+            iconAnchor: [15, 42]
+        });
+        
+        // Haritayı başlat
+        function initMap() {
+            // Harita oluştur
+            map = L.map('map').setView(defaultCenter, defaultZoom);
+            
+            // Harita altlığı ekle
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Katmanları oluştur
+            universitiesLayer = L.layerGroup().addTo(map);
+            accommodationsLayer = L.layerGroup().addTo(map);
+            routesLayer = L.layerGroup().addTo(map);
+            gasStationsLayer = L.layerGroup();
+            
+            // Harita kontrolleri
+            document.getElementById('universitiesToggle').addEventListener('change', function() {
+                toggleLayer(universitiesLayer, this.checked);
+            });
+            
+            document.getElementById('accommodationsToggle').addEventListener('change', function() {
+                toggleLayer(accommodationsLayer, this.checked);
+            });
+            
+            document.getElementById('routesToggle').addEventListener('change', function() {
+                toggleLayer(routesLayer, this.checked);
+            });
+            
+            document.getElementById('gasStationsToggle').addEventListener('change', function() {
+                toggleLayer(gasStationsLayer, this.checked);
+            });
+            
+            // Gün filtresi butonları
+            const dayFilterButtons = document.querySelectorAll('#dayFilterButtons button');
+            dayFilterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    dayFilterButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    currentDayFilter = this.getAttribute('data-day');
+                    filterMarkersByDay(currentDayFilter);
+                });
+            });
+            
+            // XML verilerini yükle ve haritayı güncelle
+            loadMapData();
+        }
+        
+        // Katman görünürlüğünü değiştir
+        function toggleLayer(layer, isVisible) {
+            if (isVisible) {
+                if (!map.hasLayer(layer)) {
+                    map.addLayer(layer);
+                }
+            } else {
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
+            }
+        }
+        
+        // Güne göre marker'ları filtrele
+        function filterMarkersByDay(day) {
+            // Tüm katmanları temizle
+            universitiesLayer.clearLayers();
+            accommodationsLayer.clearLayers();
+            routesLayer.clearLayers();
+            
+            // Verileri yeniden yükle ve filtrele
+            loadMapData(day);
+        }
+        
+        // Konum adından koordinat bulan yardımcı fonksiyon
+        function getCoordinateForLocation(locationName, dayNumber) {
+            // XML verilerine göre konum koordinatları
+            const locationCoordinates = {
+                // Gün 1
+                'Enez': { lat: 40.7250, lng: 26.0569 },
+                'Gemi': { lat: 39.5055, lng: 20.2656 },
+                'Igoumenitsa': { lat: 39.5055, lng: 20.2656 },
+                'Igumenitsa': { lat: 39.5055, lng: 20.2656 },
+                'Halkidiki': { lat: 40.2001, lng: 23.7001 },
+                'Sarti': { lat: 40.0955, lng: 23.9764 },
+                'Selanik': { lat: 40.6401, lng: 22.9444 },
+                
+                // Gün 2
+                'Ancona': { lat: 43.6158, lng: 13.5189 },
+                'Milano': { lat: 45.4642, lng: 9.1900 },
+                'Poste Regie': { lat: 45.4642, lng: 9.1900 },
+                
+                // Gün 3
+                'Bellinzona': { lat: 46.1944, lng: 9.0258 },
+                'Swissminiatur': { lat: 45.9977, lng: 8.9471 },
+                'Lugano': { lat: 46.0037, lng: 8.9511 },
+                'Como': { lat: 45.8080, lng: 8.9530 },
+                
+                // Gün 4
+                'St. Gallen': { lat: 47.4245, lng: 9.3767 },
+                'St Gallen': { lat: 47.4245, lng: 9.3767 },
+                'Konstanz': { lat: 47.6603, lng: 9.1758 },
+                'Verdabbio': { lat: 46.2571, lng: 9.1255 },
+                'Chur': { lat: 46.8508, lng: 9.5306 },
+                
+                // Gün 5
+                'Europapark': { lat: 48.2660, lng: 7.7220 },
+                'Rust': { lat: 48.2647, lng: 7.7220 },
+                
+                // Gün 6
+                'Freiburg': { lat: 47.9990, lng: 7.8421 },
+                'Karlsruhe': { lat: 49.0069, lng: 8.4037 },
+                'Strasburg': { lat: 48.5734, lng: 7.7521 },
+                
+                // Gün 7
+                'Stuttgart': { lat: 48.7758, lng: 9.1829 },
+                
+                // Gün 8
+                'Tubingen': { lat: 48.5216, lng: 9.0576 },
+                'Tübingen': { lat: 48.5216, lng: 9.0576 },
+                'Metzingen': { lat: 48.5403, lng: 9.2850 },
+                'Hohenheim': { lat: 48.7141, lng: 9.2095 },
+                
+                // Gün 9
+                'Heidelberg': { lat: 49.3988, lng: 8.6724 },
+                'Mannheim': { lat: 49.4875, lng: 8.4660 },
+                
+                // Gün 10-11
+                'Darmstadt': { lat: 49.8728, lng: 8.6512 },
+                'Frankfurt': { lat: 50.1109, lng: 8.6821 },
+                
+                // Gün 12
+                'Würzburg': { lat: 49.7913, lng: 9.9534 },
+                'Bamberg': { lat: 49.8988, lng: 10.9027 },
+                'Bayreuth': { lat: 49.9456, lng: 11.5713 },
+                'Erlangen': { lat: 49.5997, lng: 11.0035 },
+                'Nürnberg': { lat: 49.4521, lng: 11.0767 },
+                'Nurnberg': { lat: 49.4521, lng: 11.0767 },
+                
+                // Gün 13
+                'Regensburg': { lat: 49.0195, lng: 12.0973 },
+                'Augsburg': { lat: 48.3705, lng: 10.8978 },
+                'Ausburg': { lat: 48.3705, lng: 10.8978 },
+                
+                // Gün 14-19
+                'München': { lat: 48.1351, lng: 11.5820 },
+                'Munich': { lat: 48.1351, lng: 11.5820 },
+                'Münih': { lat: 48.1351, lng: 11.5820 },
+                'Garmisch-Partenkirchen': { lat: 47.4924, lng: 11.0954 },
+                'Zugspitze': { lat: 47.4211, lng: 10.9859 },
+                
+                // Gün 20-21
+                'Venedik': { lat: 45.4408, lng: 12.3155 },
+                'Marghera': { lat: 45.4773, lng: 12.2173 }
+            };
+            
+            // Üniversite isimleri için özel kontrol
+            if (locationName.includes('Üni') || locationName.includes('Universit') || locationName.includes('Institut')) {
+                // Üniversite adından şehir adını çıkar
+                for (const city in locationCoordinates) {
+                    if (locationName.includes(city)) {
+                        return locationCoordinates[city];
+                    }
+                }
+            }
+            
+            // Genel konumları kontrol et
+            for (const location in locationCoordinates) {
+                if (locationName.includes(location)) {
+                    return locationCoordinates[location];
+                }
+            }
+            
+            // Bilinmeyen konumlar için gün numarasına göre geçici koordinat oluştur
+            console.warn(`Konum bulunamadı: ${locationName}, gün: ${dayNumber}`);
+            
+            // Eğer konum bulunamadıysa, gün numarasına göre varsayılan bir konum döndür
+            // Bu, haritada en azından bir şeyler gösterilmesini sağlar
+            switch(dayNumber) {
+                case 1: return { lat: 40.7250, lng: 26.0569 }; // Enez
+                case 2: return { lat: 45.4642, lng: 9.1900 }; // Milano
+                case 3: return { lat: 46.1944, lng: 9.0258 }; // Bellinzona
+                case 4: return { lat: 47.4245, lng: 9.3767 }; // St. Gallen
+                case 5: return { lat: 48.2660, lng: 7.7220 }; // Europapark
+                case 6: return { lat: 47.9990, lng: 7.8421 }; // Freiburg
+                case 7: return { lat: 48.7758, lng: 9.1829 }; // Stuttgart
+                case 8: return { lat: 48.5216, lng: 9.0576 }; // Tubingen
+                case 9: return { lat: 49.3988, lng: 8.6724 }; // Heidelberg
+                case 10: return { lat: 49.4875, lng: 8.4660 }; // Mannheim
+                case 11: return { lat: 50.1109, lng: 8.6821 }; // Frankfurt
+                case 12: return { lat: 50.7374, lng: 7.0982 }; // Bonn
+                case 13: return { lat: 51.2277, lng: 6.7735 }; // Düsseldorf
+                case 14: return { lat: 53.0793, lng: 8.8017 }; // Bremen
+                case 15: return { lat: 53.5511, lng: 9.9937 }; // Hamburg
+                case 16: return { lat: 52.5200, lng: 13.4050 }; // Berlin
+                case 17: return { lat: 52.5200, lng: 13.4050 }; // Berlin
+                case 18: return { lat: 51.0504, lng: 13.7373 }; // Dresden
+                case 19: return { lat: 48.1351, lng: 11.5820 }; // München
+                default: return { lat: 48.7758, lng: 9.1829 }; // Stuttgart (merkezi konum)
+            }
+        }
+        
+        // XML verilerini gömülü olarak tanımla
+        const embeddedXmlData = `<?xml version="1.0" encoding="UTF-8"?>
+<SeyahatPlani>
+    <day>
+        <BaslangicNoktasi>Enez</BaslangicNoktasi>
+        <Yolculuklar>
+Enez - Selanik (Yunanistan) - 4 saat 30 dakika - 300 km
+Selanik - Belgrad (Sırbistan) - 5 saat 30 dakika - 600 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Selanik Aristotle Üniversitesi
+Belgrad Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Belgrad / Otel</KONAKLAMA>
+        <Otel>Belgrad Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Belgrad</BaslangicNoktasi>
+        <Yolculuklar>
+Belgrad - Budapeşte (Macaristan) - 4 saat - 380 km
+Budapeşte - Viyana (Avusturya) - 2 saat 30 dakika - 240 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Budapeşte Teknik Üniversitesi
+Viyana Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Viyana / Otel</KONAKLAMA>
+        <Otel>Viyana Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Viyana</BaslangicNoktasi>
+        <Yolculuklar>
+Viyana - Prag (Çek Cumhuriyeti) - 3 saat 30 dakika - 330 km
+Prag - Dresden (Almanya) - 1 saat 45 dakika - 150 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Prag Charles Üniversitesi
+Dresden Teknik Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Dresden / Otel</KONAKLAMA>
+        <Otel>Dresden Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Dresden</BaslangicNoktasi>
+        <Yolculuklar>
+Dresden - Berlin (Almanya) - 2 saat - 190 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Berlin Humboldt Üniversitesi
+Berlin Teknik Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Berlin / Otel</KONAKLAMA>
+        <Otel>Berlin Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Berlin</BaslangicNoktasi>
+        <Yolculuklar>
+Berlin - Hamburg (Almanya) - 2 saat - 290 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Hamburg Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Hamburg / Otel</KONAKLAMA>
+        <Otel>Hamburg Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Hamburg</BaslangicNoktasi>
+        <Yolculuklar>
+Hamburg - Hannover (Almanya) - 1 saat 45 dakika - 150 km
+Hannover - Göttingen (Almanya) - 1 saat 15 dakika - 120 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Hannover Leibniz Üniversitesi
+Göttingen Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Göttingen / Otel</KONAKLAMA>
+        <Otel>Göttingen Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Göttingen</BaslangicNoktasi>
+        <Yolculuklar>
+Göttingen - Frankfurt (Almanya) - 2 saat 30 dakika - 280 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Frankfurt Goethe Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Frankfurt / Otel</KONAKLAMA>
+        <Otel>Frankfurt Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Frankfurt</BaslangicNoktasi>
+        <Yolculuklar>
+Frankfurt - Heidelberg (Almanya) - 1 saat - 90 km
+Heidelberg - Stuttgart (Almanya) - 1 saat - 120 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Heidelberg Üniversitesi
+Stuttgart Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Stuttgart / Otel</KONAKLAMA>
+        <Otel>Stuttgart Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Stuttgart</BaslangicNoktasi>
+        <Yolculuklar>
+Stuttgart - Münih (Almanya) - 2 saat 30 dakika - 230 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Münih Teknik Üniversitesi
+Münih Ludwig Maximilian Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Münih / Otel</KONAKLAMA>
+        <Otel>Münih Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Münih</BaslangicNoktasi>
+        <Yolculuklar>
+Münih - Zürih (İsviçre) - 3 saat 30 dakika - 310 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Zürih Federal Teknoloji Enstitüsü (ETH Zürih)
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Zürih / Otel</KONAKLAMA>
+        <Otel>Zürih Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Zürih</BaslangicNoktasi>
+        <Yolculuklar>
+Zürih - Milano (İtalya) - 3 saat 30 dakika - 280 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Milano Politeknik Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Milano / Otel</KONAKLAMA>
+        <Otel>Milano Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Milano</BaslangicNoktasi>
+        <Yolculuklar>
+Milano - Venedik (İtalya) - 2 saat 45 dakika - 280 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Venedik Ca' Foscari Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Venedik / Otel</KONAKLAMA>
+        <Otel>Venedik Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Venedik</BaslangicNoktasi>
+        <Yolculuklar>
+Venedik - Ljubljana (Slovenya) - 2 saat 30 dakika - 240 km
+Ljubljana - Zagreb (Hırvatistan) - 1 saat 45 dakika - 140 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+Ljubljana Üniversitesi
+Zagreb Üniversitesi
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Zagreb / Otel</KONAKLAMA>
+        <Otel>Zagreb Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Zagreb</BaslangicNoktasi>
+        <Yolculuklar>
+Zagreb - Belgrad (Sırbistan) - 4 saat - 390 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Belgrad / Otel</KONAKLAMA>
+        <Otel>Belgrad Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Belgrad</BaslangicNoktasi>
+        <Yolculuklar>
+Belgrad - Selanik (Yunanistan) - 5 saat 30 dakika - 600 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Selanik / Otel</KONAKLAMA>
+        <Otel>Selanik Merkez Otel</Otel>
+    </day>
+    <day>
+        <BaslangicNoktasi>Selanik</BaslangicNoktasi>
+        <Yolculuklar>
+Selanik - Enez (Türkiye) - 4 saat 30 dakika - 300 km
+        </Yolculuklar>
+        <GezilecekUniversiteler>
+        </GezilecekUniversiteler>
+        <KONAKLAMA>Enez / Otel</KONAKLAMA>
+        <Otel>Enez Merkez Otel</Otel>
+    </day>
+</SeyahatPlani>`;
+        
+        // Seyahat planı verilerini yükle ve tabloya doldur
+        function loadPlanData(dayFilter = 'all') {
+            console.log('XML verileri yükleniyor...');
+            
+            try {
+                // XML verilerini sayfadan al
+                const xmlString = document.getElementById('seyahat-plani-xml').textContent;
+                console.log('XML string uzunluğu:', xmlString.length);
+                
+                // XML verilerini parse et
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+                console.log('XML parse edildi:', xmlDoc);
+                
+                // XML verilerini al
+                const xmlData = xmlDoc.querySelectorAll('day');
+                console.log('XML veri sayısı:', xmlData.length);
+                
+                if (xmlData.length === 0) {
+                    console.error('XML verileri bulunamadı!');
+                    alert('Seyahat planı verileri yüklenemedi. Lütfen XML dosyasını kontrol ediniz.');
+                    return;
+                }
+                
+                // Tablo içeriğini temizle
+                const tableBody = document.getElementById('plan-summary');
+                tableBody.innerHTML = '';
+                
+                // XML verilerini tabloya ekle
+                xmlData.forEach((dayElement, index) => {
+                    const dayNumber = index + 1;
+                    
+                    // Gün filtresine göre kontrol et
+                    if (dayFilter !== 'all' && dayNumber != dayFilter) {
+                        return;
+                    }
+                    
+                    // Gün bilgilerini al
+                    const tarih = dayElement.querySelector('Tarih')?.textContent || '-';
+                    const konaklama = dayElement.querySelector('KONAKLAMA')?.textContent || '-';
+                    const universiteler = dayElement.querySelector('Gezilecek\u00A0Üniversiteler') || dayElement.querySelector('Gezilecek Üniversiteler') || dayElement.querySelector('Gezilecek_Üniversiteler');
+                    const universitelerText = universiteler ? universiteler.textContent.trim() : '-';
+                    const otel = dayElement.querySelector('Otel')?.textContent || '-';
+                    const yolculuklar = dayElement.querySelector('Yolculuklar')?.textContent || '-';
+                    
+                    // Yeni satır oluştur
+                    const row = document.createElement('tr');
+                    
+                    // Hücreler oluştur
+                    row.innerHTML = `
+                        <td><strong>Gün ${dayNumber}</strong></td>
+                        <td>${tarih}</td>
+                        <td>${konaklama}</td>
+                        <td>${universitelerText !== '-' ? createGoogleMapsLink(universitelerText) : 'Yok'}</td>
+                        <td>${otel !== '-' ? createGoogleMapsLink(otel) : 'Belirtilmemiş'}</td>
+                        <td>${yolculuklar !== '-' ? yolculuklar : 'Belirtilmemiş'}</td>
+                    `;
+                    
+                    // Satırı tabloya ekle
+                    tableBody.appendChild(row);
+                });
+                
+            } catch (error) {
+                console.error('XML işleme hatası:', error);
+                alert('Seyahat planı verileri işlenirken bir hata oluştu: ' + error.message);
+            }
+        }
+        
+        // XML verilerini işle
+        function processXmlData(xmlData, dayFilter = 'all') {
+            console.log('XML verileri işleniyor:', xmlData);
+            
+            // XML verilerinden harita verilerini oluştur
+            const mapData = {
+                universities: [],
+                accommodations: [],
+                routes: [],
+                days: []
+            };
+            
+            // XML verilerinden koordinatları çıkar
+            xmlData.forEach((dayElement, index) => {
+                const dayNumber = index + 1;
+                mapData.days.push(dayNumber);
+                
+                // Günün başlangıç ve bitiş noktalarını al
+                // XML etiketlerini doğru şekilde seçmek için tüm etiketleri kontrol edelim
+                console.log(`Gün ${dayNumber} için mevcut etiketler:`, Array.from(dayElement.children).map(el => el.tagName));
+                
+                // Başlangıç noktasını al
+                let baslangic = null;
+                const baslangicElement = dayElement.querySelector('Başlangıç\ Noktası');
+                if (baslangicElement) {
+                    baslangic = baslangicElement.textContent.trim();
+                    console.log(`Gün ${dayNumber} için başlangıç bulundu:`, baslangic);
+                }
+                
+                // Konaklama bilgisini al
+                let bitis = null;
+                const konaklamaElement = dayElement.querySelector('KONAKLAMA');
+                if (konaklamaElement) {
+                    bitis = konaklamaElement.textContent.trim();
+                    console.log(`Gün ${dayNumber} için konaklama bulundu:`, bitis);
+                }
+                
+                // Üniversite bilgilerini al
+                const uniElement = dayElement.querySelector('Gezilecek\ Üniversiteler') || dayElement.querySelector('Gezilecek_Üniversiteler');
+                if (uniElement && uniElement.textContent.trim() !== '') {
+                    const universiteler = uniElement.textContent;
+                    console.log(`Gün ${dayNumber} için üniversiteler bulundu:`, universiteler);
+                    
+                    const uniList = universiteler.split('\n');
+                    uniList.forEach(uni => {
+                        if (uni.trim() !== '') {
+                            const uniName = uni.trim();
+                            const uniCoord = getCoordinateForLocation(uniName, dayNumber);
+                            if (uniCoord) {
+                                console.log(`Üniversite koordinatı bulundu: ${uniName} -> ${uniCoord.lat},${uniCoord.lng}`);
+                                mapData.universities.push({
+                                    name: uniName,
+                                    lat: uniCoord.lat,
+                                    lng: uniCoord.lng,
+                                    day: dayNumber
+                                });
+                            } else {
+                                console.warn(`Üniversite koordinatı bulunamadı: ${uniName}`);
+                            }
+                        }
+                    });
+                }
+                
+                // Konaklama bilgilerini al
+                const otelElement = dayElement.querySelector('Otel');
+                if (otelElement && otelElement.textContent.trim() !== '') {
+                    const konaklama = otelElement.textContent;
+                    console.log(`Gün ${dayNumber} için otel bulundu:`, konaklama);
+                    
+                    const hotelName = konaklama.split('\n')[0].trim();
+                    const accomCoord = getCoordinateForLocation(hotelName, dayNumber);
+                    if (accomCoord) {
+                        console.log(`Konaklama koordinatı bulundu: ${hotelName} -> ${accomCoord.lat},${accomCoord.lng}`);
+                        mapData.accommodations.push({
+                            name: hotelName,
+                            lat: accomCoord.lat,
+                            lng: accomCoord.lng,
+                            day: dayNumber
+                        });
+                    } else {
+                        console.warn(`Konaklama koordinatı bulunamadı: ${hotelName}`);
+                    }
+                }
+                
+                // Yolculuk bilgilerini al
+                const yolculuklarElement = dayElement.querySelector('Yolculuklar');
+                if (yolculuklarElement && yolculuklarElement.textContent.trim() !== '') {
+                    const yolculuklar = yolculuklarElement.textContent;
+                    console.log(`Gün ${dayNumber} için yolculuklar bulundu:`, yolculuklar);
+                    
+                    if (yolculuklar && yolculuklar.trim() !== '') {
+                        const routePoints = [];
+                        
+                        // Başlangıç noktasını ekle
+                        if (baslangic) {
+                            const startCoord = getCoordinateForLocation(baslangic, dayNumber);
+                            if (startCoord) routePoints.push(startCoord);
+                        }
+                        
+                        // Ara noktaları ekle
+                        const routeSegments = yolculuklar.split('\n');
+                        routeSegments.forEach(segment => {
+                            if (segment.includes('-')) {
+                                const locations = segment.split('-')[0].trim();
+                                const waypoint = getCoordinateForLocation(locations, dayNumber);
+                                if (waypoint) routePoints.push(waypoint);
+                            }
+                        });
+                        
+                        // Bitiş noktasını ekle
+                        if (bitis) {
+                            const endCoord = getCoordinateForLocation(bitis.split('/')[0].trim(), dayNumber);
+                            if (endCoord && routePoints.length > 0) {
+                                routePoints.push(endCoord);
+                            }
+                        }
+                        
+                        // Rota noktaları varsa rotayı ekle
+                        if (routePoints.length >= 2) {
+                            mapData.routes.push(routePoints);
+                        }
+                    }
+                }
+            });
+            
+            // Verileri haritaya ekle
+            if (mapData.universities.length > 0 || mapData.accommodations.length > 0 || mapData.routes.length > 0) {
+                addMarkersToMap(mapData, dayFilter);
+                return;
+            }
+            
+            // Eğer XML'den veri çıkarılamadıysa, kullanıcıya bilgi ver
+            console.warn('XML verilerinden harita verileri çıkarılamadı.');
+            alert('Seyahat planı verilerinden harita bilgileri oluşturulamadı. Lütfen XML dosyasını kontrol ediniz.');
+        }
+        
+        // İsimden Google Maps linki oluştur
+        function createGoogleMapsLink(name) {
+            if (!name || name === '-' || name === 'Belirtilmemiş' || name === 'Yok') {
+                return name;
+            }
+            
+            // Adres satırlarını ayır (birden fazla satır olabilir)
+            const lines = name.split('\n');
+            // İlk satırı isim olarak kabul et
+            const placeName = lines[0].trim();
+            
+            // Google Maps arama linki oluştur
+            const googleMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(placeName)}`;
+            
+            // HTML link elementi oluştur
+            return `<a href="${googleMapsUrl}" target="_blank" class="text-primary">${name}</a>`;
+        }
+        
+        // Timeline (Zaman-Mekan Çizelgesi) Harita oluştur
+        function createTimelineMap() {
+            const container = document.getElementById('timeline-map-container');
+            
+            // Timeline veri yapısını oluştur
+            const items = travelRoute.map(location => {
+                return {
+                    id: location.day,
+                    content: `<div class="timeline-item">
+                                <div class="timeline-city">${location.city}</div>
+                                <div class="timeline-country">${location.country}</div>
+                             </div>`,
+                    title: `Gün ${location.day}: ${location.city}, ${location.country} (${location.date})`,
+                    start: new Date(location.date.split('.').reverse().join('-')),
+                    group: location.country
+                };
+            });
+            
+            // Grupları oluştur (ülkelere göre)
+            const countries = [...new Set(travelRoute.map(item => item.country))];
+            const groups = countries.map((country, index) => {
+                let color;
+                switch(country) {
+                    case 'Almanya': color = '#FFDA44'; break;
+                    case 'İtalya': color = '#009246'; break;
+                    case 'İsviçre': color = '#FF0000'; break;
+                    case 'Yunanistan': color = '#0D5EAF'; break;
+                    case 'Türkiye': color = '#E30A17'; break;
+                    default: color = '#333';
+                }
+                
+                return {
+                    id: country,
+                    content: country,
+                    style: `color: ${color}; font-weight: bold;`
+                };
+            });
+            
+            // Timeline seçenekleri
+            const options = {
+                height: '400px',
+                min: new Date('2025-07-19'),  // Başlangıç tarihi
+                max: new Date('2025-08-10'),  // Bitiş tarihi
+                zoomMin: 1000 * 60 * 60 * 24 * 7,  // Bir hafta
+                zoomMax: 1000 * 60 * 60 * 24 * 30,  // Bir ay
+                orientation: 'both',
+                showCurrentTime: false,
+                stack: true,
+                stackSubgroups: true,
+                format: {
+                    minorLabels: {
+                        day: 'D MMM',
+                        hour: 'HH:mm'
+                    },
+                    majorLabels: {
+                        day: 'ddd D MMM YYYY',
+                        hour: 'ddd D MMM'
+                    }
+                },
+                template: function (item) {
+                    return item.content;
+                }
+            };
+            
+            // Timeline'a CSS ekle
+            const style = document.createElement('style');
+            style.textContent = `
+                .timeline-item {
+                    padding: 5px;
+                    border-radius: 4px;
+                    background-color: #fff;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                }
+                .timeline-city {
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                .timeline-country {
+                    font-size: 10px;
+                    color: #666;
+                }
+                .vis-item {
+                    border-color: #2B7CE9;
+                    background-color: #D2E5FF;
+                    color: #1A1A1A;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+                }
+                .vis-item.vis-selected {
+                    border-color: #FFA500;
+                    background-color: #FFC870;
+                }
+                .vis-time-axis .vis-text {
+                    color: #333;
+                    padding: 3px;
+                    box-sizing: border-box;
+                }
+                .vis-time-axis .vis-grid.vis-minor {
+                    border-width: 1px;
+                    border-color: #f5f5f5;
+                }
+                .vis-time-axis .vis-grid.vis-major {
+                    border-width: 1px;
+                    border-color: #e5e5e5;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Timeline'i oluştur
+            const timeline = new vis.Timeline(container, items, groups, options);
+            
+            // Olay dinleyicileri ekle
+            timeline.on('select', function(properties) {
+                if (properties.items.length) {
+                    const selectedId = properties.items[0];
+                    const selectedItem = travelRoute.find(item => item.day == selectedId);
+                    if (selectedItem) {
+                        alert(`Seçilen: ${selectedItem.city}, ${selectedItem.country}\nGün: ${selectedItem.day}\nTarih: ${selectedItem.date}`);
+                    }
+                }
+            });
+            
+            // Lejant oluştur
+            const legendContainer = document.createElement('div');
+            legendContainer.className = 'timeline-legend';
+            legendContainer.style.cssText = 'position: absolute; top: 10px; right: 10px; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; z-index: 1000;';
+            
+            let legendHTML = '<div style="font-weight: bold; margin-bottom: 5px;">Lejant</div>';
+            countries.forEach(country => {
+                let color;
+                switch(country) {
+                    case 'Almanya': color = '#FFDA44'; break;
+                    case 'İtalya': color = '#009246'; break;
+                    case 'İsviçre': color = '#FF0000'; break;
+                    case 'Yunanistan': color = '#0D5EAF'; break;
+                    case 'Türkiye': color = '#E30A17'; break;
+                    default: color = '#333';
+                }
+                
+                legendHTML += `<div style="margin: 3px 0;"><span style="display: inline-block; width: 12px; height: 12px; background-color: ${color}; margin-right: 5px;"></span>${country}</div>`;
+            });
+            
+            legendContainer.innerHTML = legendHTML;
+            container.appendChild(legendContainer);
+        }
+        
+        // Metro Stili Harita oluştur
+        function createMetroMap() {
+            const container = document.getElementById('metro-map-container');
+            
+            // Container genişliğini al
+            const containerWidth = container.clientWidth;
+            
+            // SVG oluştur
+            const svg = d3.select('#metro-map-container')
+                .append('svg')
+                .attr('width', '100%')
+                .attr('height', '500')
+                .attr('viewBox', `0 0 ${containerWidth} 400`)
+                .attr('preserveAspectRatio', 'xMinYMid meet');
+            
+            // Arkaplan oluştur
+            svg.append('rect')
+                .attr('width', containerWidth)
+                .attr('height', 400)
+                .attr('fill', '#f8f9fa');
+            
+            // Metro hatları için ülkeleri grupla
+            const countries = {};
+            travelRoute.forEach(location => {
+                if (!countries[location.country]) {
+                    countries[location.country] = [];
+                }
+                countries[location.country].push(location);
+            });
+            
+            // Ülkelere göre renkler
+            const countryColors = {
+                'Almanya': '#FFDA44',
+                'İtalya': '#009246',
+                'İsviçre': '#FF0000',
+                'Yunanistan': '#0D5EAF',
+                'Türkiye': '#E30A17'
+            };
+            
+            // Metro istasyonlarını oluştur (basitleştirilmiş koordinatlar)
+            const stations = travelRoute.map((location, index) => {
+                // Metro haritalarında gerçek coğrafi konumlar yerine basitleştirilmiş düzen kullanılır
+                // Yatay düzende günlere göre sırala - tam genişlikte görünmesi için daha geniş aralıklar kullan
+                const spacing = containerWidth / (travelRoute.length + 1);
+                const x = spacing + (index * spacing);
+                
+                // Dikey düzende ülkelere göre grupla
+                let y;
+                switch(location.country) {
+                    case 'Türkiye': y = 100; break;
+                    case 'Yunanistan': y = 150; break;
+                    case 'İtalya': y = 200; break;
+                    case 'İsviçre': y = 250; break;
+                    case 'Almanya': y = 300; break;
+                    default: y = 350;
+                }
+                
+                // Aynı şehirde kalınan günlerde hafif kaydırma yap
+                if (index > 0 && location.city === travelRoute[index-1].city) {
+                    y += 10;
+                }
+                
+                return {
+                    x: x,
+                    y: y,
+                    city: location.city,
+                    country: location.country,
+                    day: location.day,
+                    date: location.date,
+                    color: countryColors[location.country] || '#333'
+                };
+            });
+            
+            // Ülke hatlarını çiz
+            Object.keys(countries).forEach(country => {
+                const countryStations = stations.filter(s => s.country === country);
+                if (countryStations.length > 1) {
+                    // Hat çizgisi oluştur
+                    const lineGenerator = d3.line()
+                        .x(d => d.x)
+                        .y(d => d.y)
+                        .curve(d3.curveCardinal);
+                    
+                    svg.append('path')
+                        .attr('d', lineGenerator(countryStations))
+                        .attr('fill', 'none')
+                        .attr('stroke', countryColors[country] || '#333')
+                        .attr('stroke-width', 8)
+                        .attr('stroke-linecap', 'round')
+                        .attr('stroke-opacity', 0.7);
+                }
+            });
+            
+            // Ülkeler arası bağlantıları çiz
+            for (let i = 0; i < stations.length - 1; i++) {
+                const current = stations[i];
+                const next = stations[i + 1];
+                
+                if (current.country !== next.country) {
+                    svg.append('line')
+                        .attr('x1', current.x)
+                        .attr('y1', current.y)
+                        .attr('x2', next.x)
+                        .attr('y2', next.y)
+                        .attr('stroke', '#333')
+                        .attr('stroke-width', 2)
+                        .attr('stroke-dasharray', '3,3');
+                }
+            }
+            
+            // İstasyonları çiz
+            const stationGroups = svg.selectAll('.station')
+                .data(stations)
+                .enter()
+                .append('g')
+                .attr('class', 'station')
+                .attr('transform', d => `translate(${d.x}, ${d.y})`);
+            
+            // İstasyon daireleri
+            stationGroups.append('circle')
+                .attr('r', 8)
+                .attr('fill', d => d.color)
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 2);
+            
+            // Gün numaraları
+            stationGroups.append('text')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', '#fff')
+                .attr('font-size', '8px')
+                .attr('font-weight', 'bold')
+                .text(d => d.day);
+            
+            // Şehir isimleri
+            stationGroups.append('text')
+                .attr('x', 0)
+                .attr('y', -15)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'bottom')
+                .attr('fill', '#333')
+                .attr('font-size', '10px')
+                .attr('font-weight', 'bold')
+                .text(d => d.city);
+            
+            // Tooltip için mouseover olayı
+            stationGroups.on('mouseover', function(event, d) {
+                const tooltip = d3.select('#metro-map-container')
+                    .append('div')
+                    .attr('class', 'tooltip')
+                    .style('position', 'absolute')
+                    .style('background-color', '#fff')
+                    .style('border', '1px solid #ddd')
+                    .style('border-radius', '4px')
+                    .style('padding', '8px')
+                    .style('box-shadow', '0 2px 5px rgba(0,0,0,0.1)')
+                    .style('pointer-events', 'none')
+                    .style('left', `${event.pageX + 10}px`)
+                    .style('top', `${event.pageY - 10}px`);
+                
+                tooltip.html(`
+                    <strong>${d.city}, ${d.country}</strong><br>
+                    Gün: ${d.day}<br>
+                    Tarih: ${d.date}
+                `);
+            }).on('mouseout', function() {
+                d3.select('.tooltip').remove();
+            });
+            
+            // Lejant oluştur
+            const legend = svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(${containerWidth - 150}, 20)`);
+            
+            legend.append('rect')
+                .attr('width', 130)
+                .attr('height', 130)
+                .attr('fill', '#fff')
+                .attr('stroke', '#ddd')
+                .attr('rx', 5);
+            
+            legend.append('text')
+                .attr('x', 65)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('font-weight', 'bold')
+                .text('Metro Hatları');
+            
+            // Ülke renkleri
+            const legendItems = Object.keys(countryColors).map(country => {
+                return { name: country, color: countryColors[country] };
+            });
+            
+            legendItems.forEach((item, i) => {
+                const y = 40 + i * 15;
+                
+                legend.append('line')
+                    .attr('x1', 20)
+                    .attr('y1', y)
+                    .attr('x2', 40)
+                    .attr('y2', y)
+                    .attr('stroke', item.color)
+                    .attr('stroke-width', 5)
+                    .attr('stroke-linecap', 'round');
+                
+                legend.append('text')
+                    .attr('x', 45)
+                    .attr('y', y)
+                    .attr('dominant-baseline', 'middle')
+                    .attr('font-size', '9px')
+                    .text(item.name);
+            });
+        }
+        
+        // SVG Özel Çizim Harita oluştur
+        function createSVGMap() {
+            const container = document.getElementById('svg-map-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // SVG elementini oluştur
+            const svg = d3.select('#svg-map-container')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('viewBox', `0 0 ${width} ${height}`)
+                .attr('preserveAspectRatio', 'xMidYMid meet');
+            
+            // Arkaplan oluştur
+            svg.append('rect')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('fill', '#f8f9fa');
+            
+            // Koordinatları SVG alanına dönüştür
+            // Önce seyahat rotasındaki min/max koordinatları bul
+            let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+            
+            travelRoute.forEach(location => {
+                minLat = Math.min(minLat, location.lat);
+                maxLat = Math.max(maxLat, location.lat);
+                minLng = Math.min(minLng, location.lng);
+                maxLng = Math.max(maxLng, location.lng);
+            });
+            
+            // Harita kenarlarında biraz boşluk bırak (toplam alanın %5'i kadar)
+            const latPadding = (maxLat - minLat) * 0.1;
+            const lngPadding = (maxLng - minLng) * 0.1;
+            
+            minLat -= latPadding;
+            maxLat += latPadding;
+            minLng -= lngPadding;
+            maxLng += lngPadding;
+            
+            // Koordinatları SVG alanına dönüştür
+            const points = travelRoute.map(location => {
+                const x = ((location.lng - minLng) / (maxLng - minLng)) * width;
+                const y = height - ((location.lat - minLat) / (maxLat - minLat)) * height; // Y ekseni tersine çevrilir
+                
+                return {
+                    x: x,
+                    y: y,
+                    city: location.city,
+                    country: location.country,
+                    day: location.day,
+                    date: location.date
+                };
+            });
+            
+            // Ülke renkleri tanımla (ülke kutuları kaldırıldı)
+            const countryColors = {
+                'Almanya': '#FFDA44',
+                'İtalya': '#009246',
+                'İsviçre': '#FF0000',
+                'Yunanistan': '#0D5EAF',
+                'Türkiye': '#E30A17'
+            };
+            
+            // Rotaçı çiz - daha belirgin ve göze çarpan bir rota çizgisi
+            const lineGenerator = d3.line()
+                .x(d => d.x)
+                .y(d => d.y)
+                .curve(d3.curveCardinal);
+            
+            // Önce arka plan çizgisi (geniş ve beyaz) çiz
+            svg.append('path')
+                .attr('d', lineGenerator(points))
+                .attr('fill', 'none')
+                .attr('stroke', '#ffffff')
+                .attr('stroke-width', 7)
+                .attr('stroke-linecap', 'round');
+                
+            // Sonra ön plan çizgisi çiz
+            svg.append('path')
+                .attr('d', lineGenerator(points))
+                .attr('fill', 'none')
+                .attr('stroke', '#0066cc')
+                .attr('stroke-width', 4)
+                .attr('stroke-dasharray', '8,4')
+                .attr('stroke-linecap', 'round');
+            
+            // Şehir noktalarını ekle
+            const cityGroups = svg.selectAll('.city-point')
+                .data(points)
+                .enter()
+                .append('g')
+                .attr('class', 'city-point')
+                .attr('transform', d => `translate(${d.x}, ${d.y})`);
+            
+            // Şehir daireleri - daha büyük ve belirgin
+            // Önce arka plan dairesi (gölge etkisi için)
+            cityGroups.append('circle')
+                .attr('r', 10)
+                .attr('fill', '#333')
+                .attr('opacity', 0.3);
+                
+            // Şehir dairesi
+            cityGroups.append('circle')
+                .attr('r', 8)
+                .attr('fill', d => {
+                    // Ülkeye göre renk belirle
+                    if (d.country === 'Almanya') return '#FFDA44';
+                    if (d.country === 'İtalya') return '#009246';
+                    if (d.country === 'İsviçre') return '#FF0000';
+                    if (d.country === 'Yunanistan') return '#0D5EAF';
+                    if (d.country === 'Türkiye') return '#E30A17';
+                    return '#333';
+                })
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 2.5);
+            
+            // Gün numaraları - daha büyük ve okunablı
+            cityGroups.append('text')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', '#fff')
+                .attr('font-size', '10px')
+                .attr('font-weight', 'bold')
+                .text(d => d.day);
+            
+            // Şehir isimleri - arka plan ile daha okunablı
+            // Önce metin arka planı için bir kutu çiz
+            cityGroups.append('rect')
+                .attr('x', -30)
+                .attr('y', -30)
+                .attr('width', 60)
+                .attr('height', 16)
+                .attr('fill', 'white')
+                .attr('fill-opacity', 0.8)
+                .attr('rx', 3)
+                .attr('ry', 3);
+                
+            // Şehir ismi metni
+            cityGroups.append('text')
+                .attr('x', 0)
+                .attr('y', -18)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'bottom')
+                .attr('fill', '#000')
+                .attr('font-size', '11px')
+                .attr('font-weight', 'bold')
+                .text(d => d.city);
+            
+            // Tooltip için mouseover olayı
+            cityGroups.on('mouseover', function(event, d) {
+                const tooltip = d3.select('#svg-map-container')
+                    .append('div')
+                    .attr('class', 'tooltip')
+                    .style('position', 'absolute')
+                    .style('background-color', '#fff')
+                    .style('border', '1px solid #ddd')
+                    .style('border-radius', '4px')
+                    .style('padding', '8px')
+                    .style('box-shadow', '0 2px 5px rgba(0,0,0,0.1)')
+                    .style('pointer-events', 'none')
+                    .style('left', `${event.pageX + 10}px`)
+                    .style('top', `${event.pageY - 10}px`);
+                
+                tooltip.html(`
+                    <strong>${d.city}, ${d.country}</strong><br>
+                    Gün: ${d.day}<br>
+                    Tarih: ${d.date}
+                `);
+            }).on('mouseout', function() {
+                d3.select('.tooltip').remove();
+            });
+            
+            // Lejant oluştur
+            const legend = svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(20, ${height - 100})`);
+            
+            legend.append('rect')
+                .attr('width', 120)
+                .attr('height', 90)
+                .attr('fill', '#fff')
+                .attr('stroke', '#ddd')
+                .attr('rx', 5);
+            
+            legend.append('text')
+                .attr('x', 60)
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('font-weight', 'bold')
+                .text('Lejant');
+            
+            // Ülke renkleri
+            const legendItems = [
+                { name: 'Almanya', color: '#FFDA44' },
+                { name: 'İtalya', color: '#009246' },
+                { name: 'İsviçre', color: '#FF0000' },
+                { name: 'Yunanistan', color: '#0D5EAF' },
+                { name: 'Türkiye', color: '#E30A17' }
+            ];
+            
+            legendItems.forEach((item, i) => {
+                const y = 35 + i * 15;
+                
+                legend.append('circle')
+                    .attr('cx', 20)
+                    .attr('cy', y)
+                    .attr('r', 5)
+                    .attr('fill', item.color);
+                
+                legend.append('text')
+                    .attr('x', 30)
+                    .attr('y', y)
+                    .attr('dominant-baseline', 'middle')
+                    .attr('font-size', '9px')
+                    .text(item.name);
+            });
+        }
+        
+        // Harita marker'larını ekle
+        function addMarkersToMap(data, dayFilter) {
+            console.log('Haritaya veriler ekleniyor:', data);
+            console.log('Üniversiteler:', data.universities.length);
+            console.log('Konaklamalar:', data.accommodations.length);
+            console.log('Rotalar:', data.routes.length);
+            
+            // Tüm katmanları temizle
+            universitiesLayer.clearLayers();
+            accommodationsLayer.clearLayers();
+            routesLayer.clearLayers();
+            
+            // Üniversite marker'larını ekle
+            for (let i = 0; i < data.universities.length; i++) {
+                const uni = data.universities[i];
+                const dayNum = uni.day; // Her üniversitenin kendi günü var
+                console.log(`Üniversite ekleniyor: ${uni.name}, Koordinat: ${uni.lat},${uni.lng}, Gün: ${dayNum}`);
+                if (dayFilter === 'all' || parseInt(dayFilter) === dayNum) {
+                    const marker = L.marker([uni.lat, uni.lng], { icon: universityIcon }).addTo(universitiesLayer);
+                    marker.bindPopup(`<b>${uni.name}</b><br>Gün ${dayNum}`);
+                }
+            }
+            
+            // Konaklama marker'larını ekle
+            for (let i = 0; i < data.accommodations.length; i++) {
+                const accom = data.accommodations[i];
+                const dayNum = accom.day; // Her konaklamanın kendi günü var
+                console.log(`Konaklama ekleniyor: ${accom.name}, Koordinat: ${accom.lat},${accom.lng}, Gün: ${dayNum}`);
+                if (dayFilter === 'all' || parseInt(dayFilter) === dayNum) {
+                    const marker = L.marker([accom.lat, accom.lng], { icon: accommodationIcon }).addTo(accommodationsLayer);
+                    marker.bindPopup(`<b>${accom.name}</b><br>Gün ${dayNum}`);
+                }
+            }
+            
+            // Rotaları ekle
+            for (let i = 0; i < data.routes.length; i++) {
+                const dayNum = data.days[i % data.days.length]; // Gün numarasını al
+                console.log(`Rota ekleniyor: Gün ${dayNum}, Nokta sayısı: ${data.routes[i].length}`);
+                console.log('Rota noktaları:', data.routes[i]);
+                
+                if (dayFilter === 'all' || parseInt(dayFilter) === dayNum) {
+                    // Günlere göre farklı renkler tanımla
+                    const routeColors = {
+                        1: '#FF5733',  // Turuncu-kırmızı
+                        2: '#33A1FF',  // Mavi
+                        3: '#33FF57',  // Yeşil
+                        4: '#C233FF',  // Mor
+                        5: '#FFD700',  // Altın
+                        6: '#FF33A1',  // Pembe
+                        7: '#00CED1',  // Turkuaz
+                        8: '#FF8C00',  // Koyu turuncu
+                        9: '#8A2BE2',  // Mavi-mor
+                        10: '#32CD32', // Lime yeşil
+                        11: '#FF1493', // Koyu pembe
+                        12: '#4169E1', // Kraliyet mavisi
+                        13: '#2E8B57', // Deniz yeşili
+                        14: '#DAA520', // Altın sarısı
+                        15: '#DC143C', // Kırmızı
+                        16: '#4B0082', // Çivit
+                        17: '#FF4500', // Turuncu-kırmızı
+                        18: '#9932CC', // Koyu orkide
+                        19: '#008080'  // Turkuaz
+                    };
+                    
+                    const routeColor = routeColors[dayNum] || '#C233FF';  // Varsayılan mor
+                    
+                    try {
+                        const route = L.polyline(data.routes[i], {
+                            color: routeColor,
+                            weight: 3,
+                            opacity: 0.7,
+                            dashArray: '5, 10'
+                        }).addTo(routesLayer);
+                        route.bindPopup(`Gün ${dayNum} Rotası`);
+                    } catch (error) {
+                        console.error('Rota eklenirken hata oluştu:', error);
+                        console.error('Hatalı rota verileri:', data.routes[i]);
+                    }
+                }
+            }
+            
+            // Harita sınırlarını ayarla
+            if (universitiesLayer.getLayers().length > 0 || 
+                accommodationsLayer.getLayers().length > 0 || 
+                routesLayer.getLayers().length > 0) {
+                
+                const allLayers = [...universitiesLayer.getLayers(), 
+                                  ...accommodationsLayer.getLayers(), 
+                                  ...routesLayer.getLayers()];
+                
+                if (allLayers.length > 0) {
+                    const group = L.featureGroup(allLayers);
+                    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                }
+            }
+        }
+        
+        // Sayfa yüklendiğinde seyahat planı özetini yükle
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPlanData();
+            initFilterButtons();
+        });
+        
+        // Gün filtreleme butonlarını başlat
+        function initFilterButtons() {
+            const filterButtons = document.querySelectorAll('#dayFilterButtons button');
+            
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Aktif butonu güncelle
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Seçilen günü al
+                    const selectedDay = this.getAttribute('data-day');
+                    
+                    // Seyahat planını güncelle
+                    loadPlanData(selectedDay);
+                });
+            });
+        }
+
+    </script>
+</body>
+</html>
+
+<script>
+        // Seyahat rotası verileri
+        const travelRoute = [
+            { day: 1, date: "19.07.2025", city: "Enez", country: "Türkiye", lat: 40.7249, lng: 26.0569, nextCity: "Igoumenitsa", nextCountry: "Yunanistan" },
+            { day: 2, date: "20.07.2025", city: "Ancona", country: "İtalya", lat: 43.6158, lng: 13.5189, nextCity: "Milano", nextCountry: "İtalya" },
+            { day: 3, date: "21.07.2025", city: "Milano", country: "İtalya", lat: 45.4642, lng: 9.1900, nextCity: "Bellinzona", nextCountry: "İsviçre" },
+            { day: 4, date: "22.07.2025", city: "Bellinzona", country: "İsviçre", lat: 46.1957, lng: 9.0238, nextCity: "Konstanz", nextCountry: "Almanya" },
+            { day: 5, date: "23.07.2025", city: "Konstanz", country: "Almanya", lat: 47.6603, lng: 9.1758, nextCity: "Freiburg", nextCountry: "Almanya" },
+            { day: 6, date: "24.07.2025", city: "Freiburg", country: "Almanya", lat: 47.9990, lng: 7.8421, nextCity: "Stuttgart", nextCountry: "Almanya" },
+            { day: 7, date: "25.07.2025", city: "Stuttgart", country: "Almanya", lat: 48.7758, lng: 9.1829, nextCity: "Stuttgart", nextCountry: "Almanya" },
+            { day: 8, date: "26.07.2025", city: "Stuttgart", country: "Almanya", lat: 48.7758, lng: 9.1829, nextCity: "Metzingen", nextCountry: "Almanya" },
+            { day: 9, date: "27.07.2025", city: "Metzingen", country: "Almanya", lat: 48.5403, lng: 9.2852, nextCity: "Mannheim", nextCountry: "Almanya" },
+            { day: 10, date: "28.07.2025", city: "Mannheim", country: "Almanya", lat: 49.4875, lng: 8.4660, nextCity: "Mannheim", nextCountry: "Almanya" },
+            { day: 11, date: "29.07.2025", city: "Mannheim", country: "Almanya", lat: 49.4875, lng: 8.4660, nextCity: "Frankfurt", nextCountry: "Almanya" },
+            { day: 12, date: "30.07.2025", city: "Frankfurt", country: "Almanya", lat: 50.1109, lng: 8.6821, nextCity: "Nürnberg", nextCountry: "Almanya" },
+            { day: 13, date: "31.07.2025", city: "Nürnberg", country: "Almanya", lat: 49.4521, lng: 11.0767, nextCity: "Münih", nextCountry: "Almanya" },
+            { day: 14, date: "01.08.2025", city: "Münih", country: "Almanya", lat: 48.1351, lng: 11.5820, nextCity: "Münih", nextCountry: "Almanya" },
+            { day: 15, date: "02.08.2025", city: "Münih", country: "Almanya", lat: 48.1351, lng: 11.5820, nextCity: "Münih", nextCountry: "Almanya" },
+            { day: 16, date: "03.08.2025", city: "Münih", country: "Almanya", lat: 48.1351, lng: 11.5820, nextCity: "Marghera", nextCountry: "İtalya" },
+            { day: 17, date: "04.08.2025", city: "Marghera", country: "İtalya", lat: 45.4773, lng: 12.2173, nextCity: "Marghera", nextCountry: "İtalya" },
+            { day: 18, date: "05.08.2025", city: "Marghera", country: "İtalya", lat: 45.4773, lng: 12.2173, nextCity: "Igumenitsa", nextCountry: "Yunanistan" },
+            { day: 19, date: "06.08.2025", city: "Igumenitsa", country: "Yunanistan", lat: 39.5037, lng: 20.2658, nextCity: "Halkidiki", nextCountry: "Yunanistan" },
+            { day: 20, date: "07.08.2025", city: "Halkidiki", country: "Yunanistan", lat: 40.2447, lng: 23.6990, nextCity: "Halkidiki", nextCountry: "Yunanistan" },
+            { day: 21, date: "08.08.2025", city: "Halkidiki", country: "Yunanistan", lat: 40.2447, lng: 23.6990, nextCity: "Enez", nextCountry: "Türkiye" }
+        ];
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sayfa yüklendiğinde plan verilerini yükle
+            loadPlanData();
+            
+            // Haritaları oluştur
+            createSVGMap();
+            createMetroMap();
+            createTimelineMap();
+            
+            // Gün filtreleme butonlarına tıklama olayı ekle
+            document.querySelectorAll('#dayFilterButtons button').forEach(button => {
+                button.addEventListener('click', function() {
+                    // Aktif sınıfı kaldır
+                    document.querySelector('#dayFilterButtons button.active').classList.remove('active');
+                    // Tıklanan butona aktif sınıfı ekle
+                    this.classList.add('active');
+                    
+                    // Seçilen günü al
+                    const selectedDay = this.getAttribute('data-day');
+                    
+                    // Verileri seçilen güne göre yükle
+                    loadPlanData(selectedDay);
+                });
+            });
+        });
+
+    </script>
+</body>
+</html>
